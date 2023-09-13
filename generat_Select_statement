@@ -1,0 +1,14 @@
+def generate_select_statement(columns, values):
+    if len(columns) != len(values):
+        raise ValueError("Columns and values lists must have the same length")
+
+    select_list = [f"{value} as {column}" for column, value in zip(columns, values)]
+    select_statement = ", ".join(select_list)
+    return f"SELECT {select_statement}"
+
+
+columns = ["a", "b", "c"]
+values = [1, 2, 3]
+
+select_query = generate_select_statement(columns, values)
+print(select_query)
