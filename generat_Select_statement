@@ -2,7 +2,7 @@ def generate_select_statement(columns, values):
     if len(columns) != len(values):
         raise ValueError("Columns and values lists must have the same length")
 
-    select_list = [f"{value} as {column}" for column, value in zip(columns, values)]
+    select_list = [f'"{column}" as {value}' if not column.startswith('"') else f"{column} as {value}" for column, value in zip(columns, values)]
     select_statement = ", ".join(select_list)
     return f"SELECT {select_statement}"
 
