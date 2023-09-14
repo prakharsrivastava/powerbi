@@ -31,3 +31,24 @@ def generate_select_statement(columns, values_list):
         select_statements.append(select_statement)
 
     return select_statements
+
+
+
+def remove_single_quotes(input_list, indices_to_process):
+    result_list = []
+
+    for index, item in enumerate(input_list):
+        if index in indices_to_process:
+            # Remove single quotes from the item
+            cleaned_item = item.replace("'", "")
+            result_list.append(cleaned_item)
+        else:
+            result_list.append(item)
+
+    return result_list
+
+input_list = ['select', "'98', 'xyz'", 'from', "'table'", 'where', "'condition'"]
+indices_to_process = [1, 3]  # Specify the indices of elements to process
+
+output_list = remove_single_quotes(input_list, indices_to_process)
+print(output_list)
