@@ -12,3 +12,22 @@ values = [1, 2, 3]
 
 select_query = generate_select_statement(columns, values)
 print(select_query)
+
+
+def generate_select_statement(columns, values_list):
+    if not columns or not values_list:
+        raise ValueError("Columns and values list must not be empty")
+
+    # Ensure that each set of values has the same length as the columns
+    for values in values_list:
+        if len(values) != len(columns):
+            raise ValueError("Each set of values must have the same length as columns")
+
+    select_statements = []
+
+    for values in values_list:
+        select_list = [f'"{value}" as {column}' if not column.startswith('"') else f"{value} as {column}" for column, value in zip(columns, values)]
+        select_statement = ", ".join(select_list)
+        select_statements.append(select_statement)
+
+    return select_statements
