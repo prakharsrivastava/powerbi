@@ -68,3 +68,22 @@ for i in range(1, len(df)):
     sql_query += f" UNION SELECT {df['SPRT_ID'].iloc[i]}, '{df['SPORT'].iloc[i]}', '{df['ORACLE_SPORT'].iloc[i]}', {df['ORACLE_PROD_NUMBER'].iloc[i]}"
 
 print(sql_query)
+
+
+
+import pandas as pd
+
+# Read the CSV file with column headers
+df = pd.read_csv('your_csv_file.csv', names=['SPRT_ID', 'SPORT', 'ORACLE_SPORT', 'ORACLE_PROD_NUMBER'])
+
+# Generate SELECT queries with the required columns
+select_queries = []
+
+for index, row in df.iterrows():
+    select_query = f"SELECT {row['SPRT_ID']} as SPRT_ID, '{row['SPORT']}' as SPORT, '{row['ORACLE_SPORT']}' as ORACLE_SPORT, {row['ORACLE_PROD_NUMBER']} as ORACLE_PROD_NUMBER"
+    select_queries.append(select_query)
+
+# Print or use the generated SELECT queries
+for query in select_queries:
+    print(query)
+
