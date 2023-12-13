@@ -1,89 +1,30 @@
-def generate_select_statement(columns, values):
-    if len(columns) != len(values):
-        raise ValueError("Columns and values lists must have the same length")
+import scala.collection.mutable.ListBuffer
 
-    select_list = [f'"{column}" as {value}' if not column.startswith('"') else f"{column} as {value}" for column, value in zip(columns, values)]
-    select_statement = ", ".join(select_list)
-    return f"SELECT {select_statement}"
+object JsonIterator extends App {
 
+  // Function to generate JSON based on column information and a range of values
+  def generateJson(columnInfo: Map[String, Any], values: Range): List[Map[String, Any]] = {
+    values.map { value =>
+      columnInfo.map {
+        case (columnName, columnValue) =>
+          columnName -> (if (columnName == "value") s"${columnValue}_$value" else columnValue)
+      }
+    }.toList
+  }
 
-columns = ["a", "b", "c"]
-values = [1, 2, 3]
+  // Example column information
+  val columnInfo: Map[String, Any] = Map(
+    "column-name" -> "value",
+    "is-nullable" -> true,
+    "column-type" -> "varchar(64)"
+  )
 
-select_query = generate_select_statement(columns, values)
-print(select_query)
+  // Example range of values
+  val valueRange: Range = 1 to 4
 
+  // Generate JSON based on column information and range of values
+  val generatedJson: List[Map[String, Any]] = generateJson(columnInfo, valueRange)
 
-def generate_select_statement(columns, values_list):
-    if not columns or not values_list:
-        raise ValueError("Columns and values list must not be empty")
-
-    # Ensure that each set of values has the same length as the columns
-    for values in values_list:
-        if len(values) != len(columns):
-            raise ValueError("Each set of values must have the same length as columns")
-
-    select_statements = []
-
-    for values in values_list:
-        select_list = [f'"{value}" as {column}' if not column.startswith('"') else f"{value} as {column}" for column, value in zip(columns, values)]
-        select_statement = ", ".join(select_list)
-        select_statements.append(select_statement)
-
-    return select_statements
-
-
-
-def remove_single_quotes(input_list, indices_to_process):
-    result_list = []
-
-    for index, item in enumerate(input_list):
-        if index in indices_to_process:
-            # Remove single quotes from the item
-            cleaned_item = item.replace("'", "")
-            result_list.append(cleaned_item)
-        else:
-            result_list.append(item)
-
-    return result_list
-
-input_list = ['select', "'98', 'xyz'", 'from', "'table'", 'where', "'condition'"]
-indices_to_process = [1, 3]  # Specify the indices of elements to process
-
-output_list = remove_single_quotes(input_list, indices_to_process)
-print(output_list)
-
-
-
-import pandas as pd
-
-# Read the CSV file into a DataFrame
-df = pd.read_csv('sports.csv')
-
-# Generate the SQL query
-sql_query = "SELECT {} AS SPRT_ID, '{}' AS SPORT, '{}' AS ORACLE_SPORT, {} AS ORACLE_PROD_NUMBER".format(
-    df['SPRT_ID'].iloc[0], df['SPORT'].iloc[0], df['ORACLE_SPORT'].iloc[0], df['ORACLE_PROD_NUMBER'].iloc[0])
-
-for i in range(1, len(df)):
-    sql_query += f" UNION SELECT {df['SPRT_ID'].iloc[i]}, '{df['SPORT'].iloc[i]}', '{df['ORACLE_SPORT'].iloc[i]}', {df['ORACLE_PROD_NUMBER'].iloc[i]}"
-
-print(sql_query)
-
-
-
-import pandas as pd
-
-# Read the CSV file with column headers
-df = pd.read_csv('your_csv_file.csv', names=['SPRT_ID', 'SPORT', 'ORACLE_SPORT', 'ORACLE_PROD_NUMBER'])
-
-# Generate SELECT queries with the required columns
-select_queries = []
-
-for index, row in df.iterrows():
-    select_query = f"SELECT {row['SPRT_ID']} as SPRT_ID, '{row['SPORT']}' as SPORT, '{row['ORACLE_SPORT']}' as ORACLE_SPORT, {row['ORACLE_PROD_NUMBER']} as ORACLE_PROD_NUMBER"
-    select_queries.append(select_query)
-
-# Print or use the generated SELECT queries
-for query in select_queries:
-    print(query)
-
+  // Print the generated JSON
+  generatedJson.foreach(println)
+}
