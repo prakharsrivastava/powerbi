@@ -1,30 +1,299 @@
-import scala.collection.mutable.ListBuffer
-
-object JsonIterator extends App {
-
-  // Function to generate JSON based on column information and a range of values
-  def generateJson(columnInfo: Map[String, Any], values: Range): List[Map[String, Any]] = {
-    values.map { value =>
-      columnInfo.map {
-        case (columnName, columnValue) =>
-          columnName -> (if (columnName == "value") s"${columnValue}_$value" else columnValue)
-      }
-    }.toList
+{
+    is-nullable: true
+    column-name: value_50
+    column-type: varchar(64)
   }
-
-  // Example column information
-  val columnInfo: Map[String, Any] = Map(
-    "column-name" -> "value",
-    "is-nullable" -> true,
-    "column-type" -> "varchar(64)"
-  )
-
-  // Example range of values
-  val valueRange: Range = 1 to 4
-
-  // Generate JSON based on column information and range of values
-  val generatedJson: List[Map[String, Any]] = generateJson(columnInfo, valueRange)
-
-  // Print the generated JSON
-  generatedJson.foreach(println)
-}
+,
+  {
+    is-nullable: true
+    column-name: value_51
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_52
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_53
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_54
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_55
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_56
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_57
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_58
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_59
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_60
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_61
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_62
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_63
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_64
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_65
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_66
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_67
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_68
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_69
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_70
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_71
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_72
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_73
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_74
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_75
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_76
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_77
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_78
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_79
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_80
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_81
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_82
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_83
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_84
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_85
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_86
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_87
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_88
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_89
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_90
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_91
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_92
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_93
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_94
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_95
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_96
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_97
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_98
+    column-type: varchar(64)
+  }
+,
+  {
+    is-nullable: true
+    column-name: value_99
+    column-type: varchar(64)
+  }
