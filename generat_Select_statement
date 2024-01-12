@@ -5,3 +5,8 @@ val toTimestampUDF = udf((timestampData: String) => {
         case _: NumberFormatException => java.sql.Timestamp.valueOf(timestampData)
       }
     })
+   val toTimestampUDF = udf((timestampData: Any) => timestampData match {
+      case ts: Long => new java.sql.Timestamp(ts)
+      case ts: String => java.sql.Timestamp.valueOf(ts)
+      case _ => null
+    })
