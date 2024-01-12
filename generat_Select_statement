@@ -10,3 +10,11 @@ val toTimestampUDF = udf((timestampData: String) => {
       case ts: String => java.sql.Timestamp.valueOf(ts)
       case _ => null
     })
+udf { (timestampData: Column) =>
+      when(timestampData.isNotNull, expr("""
+        CASE
+          WHEN IS_JSON_NUMBER(timestampData) THEN TO_TIMESTAMP(FROM_UNIXTIME(CAST(timestampData AS BIGINT)))
+          WHEN IS_JSON_STRING(timestampData) THEN TO_TIMESTAMP(timestampData)
+        END
+      """)).otherwise(null)
+    }
