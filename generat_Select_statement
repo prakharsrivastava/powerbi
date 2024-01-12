@@ -1,1 +1,7 @@
-val toTimestampUDF = udf((timestamp: Option[java.sql.Timestamp]) => timestamp.map(ts => java.sql.Timestamp.from(ts.toInstant)))
+val toTimestampUDF = udf((timestampData: String) => {
+      try {
+        new java.sql.Timestamp(timestampData.toLong)
+      } catch {
+        case _: NumberFormatException => java.sql.Timestamp.valueOf(timestampData)
+      }
+    })
