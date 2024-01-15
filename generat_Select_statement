@@ -1,26 +1,28 @@
-val updatedDf = df.withColumn("yourColumnName", struct(col("timestampColumn"), lit(null).cast(DataTypes.LongType)).cast(newSchema))
-
-
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-// Assuming df is your DataFrame with a column named timestampColumn of type Timestamp
+// Assuming df is your DataFrame with a column named startTime
 val df = // ...
-
-// Define the case class representing your data
-case class User(yourColumnName: Option[(java.sql.Timestamp, Long)])
 
 // Define the new schema with a single struct column
 val newSchema = StructType(Seq(
-  StructField("yourColumnName", DataTypes.createStructType(Array(
-    StructField("timestampValue", DataTypes.TimestampType, nullable = true),
-    StructField("longValue", DataTypes.LongType, nullable = true)
-  )), nullable = true)
+  StructField("startTime", DataTypes.createStructType(Array(
+    StructField("_1", DataTypes.TimestampType, nullable = true),
+    StructField("_2", DataTypes.LongType, nullable = true)
+  )), nullable = true),
+  StructField("academicYearOffset_part", StringType),
+  StructField("subject_part", StringType)
 ))
 
-// Convert the timestamp column to a struct column and cast it to the case class
-val updatedDf = df.withColumn("yourColumnName", struct(col("timestampColumn"), lit(null).cast(DataTypes.LongType)))
+// Convert the startTime column to the correct structure and cast it to the case class
+val updatedDf = df.withColumn(
+  "startTime",
+  struct(
+    col("startTime").cast(TimestampType).alias("_1"),
+    lit(null).cast(LongType).alias("_2")
+  ).cast(newSchema("startTime"))
+)
 
 // Show the updated DataFrame
-updatedDf.as[User].show()
+updatedDf.show()
