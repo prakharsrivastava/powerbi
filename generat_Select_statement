@@ -1,20 +1,23 @@
-val toTimestampUDF = udf((timestampData: String) => {
-      try {
-        new java.sql.Timestamp(timestampData.toLong)
-      } catch {
-        case _: NumberFormatException => java.sql.Timestamp.valueOf(timestampData)
-      }
-    })
-   val toTimestampUDF = udf((timestampData: Any) => timestampData match {
-      case ts: Long => new java.sql.Timestamp(ts)
-      case ts: String => java.sql.Timestamp.valueOf(ts)
-      case _ => null
-    })
-udf { (timestampData: Column) =>
-      when(timestampData.isNotNull, expr("""
-        CASE
-          WHEN IS_JSON_NUMBER(timestampData) THEN TO_TIMESTAMP(FROM_UNIXTIME(CAST(timestampData AS BIGINT)))
-          WHEN IS_JSON_STRING(timestampData) THEN TO_TIMESTAMP(timestampData)
-        END
-      """)).otherwise(null)
-    }
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+// Assuming df is your DataFrame with a column named timestampColumn of type Timestamp
+val df = // ...
+
+// Define the case class representing your data
+case class User(yourColumnName: Option[(java.sql.Timestamp, Long)])
+
+// Define the new schema with a single struct column
+val newSchema = StructType(Seq(
+  StructField("yourColumnName", DataTypes.createStructType(Array(
+    StructField("timestampValue", DataTypes.TimestampType, nullable = true),
+    StructField("longValue", DataTypes.LongType, nullable = true)
+  )), nullable = true)
+))
+
+// Convert the timestamp column to a struct column and cast it to the case class
+val updatedDf = df.withColumn("yourColumnName", struct(col("timestampColumn"), lit(null).cast(DataTypes.LongType)))
+
+// Show the updated DataFrame
+updatedDf.as[User].show()
