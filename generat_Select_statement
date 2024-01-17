@@ -1,28 +1,13 @@
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Column, DataFrame}
 
-// Assuming df is your DataFrame with a column named startTime
-val df = // ...
+// Assuming 'df' is your DataFrame with duplicate column names
+val aliasedColumns = df.columns.map(col(_).as(s"${_}_alias"))
 
-// Define the new schema with a single struct column
-val newSchema = StructType(Seq(
-  StructField("startTime", DataTypes.createStructType(Array(
-    StructField("_1", DataTypes.TimestampType, nullable = true),
-    StructField("_2", DataTypes.LongType, nullable = true)
-  )), nullable = true),
-  StructField("academicYearOffset_part", StringType),
-  StructField("subject_part", StringType)
-))
+// Creating a struct with aliased columns
+val structColumn: Column = struct(aliasedColumns: _*)
 
-// Convert the startTime column to the correct structure and cast it to the case class
-val updatedDf = df.withColumn(
-  "startTime",
-  struct(
-    col("startTime").cast(TimestampType).alias("_1"),
-    lit(null).cast(LongType).alias("_2")
-  ).cast(newSchema("startTime"))
-)
+// Selecting the DataFrame with the new struct column
+val resultDF: DataFrame = df.select(structColumn.alias("combined_struct"))
 
-// Show the updated DataFrame
-updatedDf.show()
+// Show the resulting DataFrame
+resultDF.show()
