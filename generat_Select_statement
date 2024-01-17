@@ -1,13 +1,19 @@
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Column, Dataset, SparkSession}
 
-// Assuming 'df' is your DataFrame with duplicate column names
-val aliasedColumns = df.columns.map(col(_).as(s"${_}_alias"))
+val spark = SparkSession.builder().appName("Example").getOrCreate()
 
-// Creating a struct with aliased columns
-val structColumn: Column = struct(aliasedColumns: _*)
+// Example DataFrame with duplicate column names
+val df = Seq((1, "foo", 3.0), (2, "bar", 4.0)).toDF("id", "value", "id")
 
-// Selecting the DataFrame with the new struct column
-val resultDF: DataFrame = df.select(structColumn.alias("combined_struct"))
+// Function to create a struct column
+protected val makeStruct: (Dataset[_]) => Column = (df: Dataset[_]) => {
+  val aliasedColumns = df.columns.map(col(_).as(s"${_}_alias"))
+  struct(aliasedColumns: _*)
+}
+
+// Selecting the struct column
+val resultDF = df.select(makeStruct(df).alias("combined_struct"))
 
 // Show the resulting DataFrame
 resultDF.show()
