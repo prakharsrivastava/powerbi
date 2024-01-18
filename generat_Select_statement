@@ -37,3 +37,28 @@ object CSVToJsonConverter {
     spark.stop()
   }
 }
+import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+object CSVToJsonConverter {
+
+  def main(args: Array[String]): Unit = {
+    val spark = SparkSession.builder.appName("CSVToJsonConverter").getOrCreate()
+
+    // Replace "path/to/your/input.csv" with the actual path to your CSV file
+    val csvFilePath = "path/to/your/input.csv"
+
+    // Read CSV file into a DataFrame
+    val df = spark.read.option("header", "true").csv(csvFilePath)
+
+    // Convert DataFrame rows to JSON
+    val jsonDF = df.select(to_json(struct(df.columns.map(col): _*)).alias("json"))
+
+    // Show the resulting JSON DataFrame
+    jsonDF.show(truncate = false)
+
+    // Stop the Spark session
+    spark.stop()
+  }
+}
