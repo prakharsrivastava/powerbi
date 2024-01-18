@@ -1,6 +1,6 @@
-  val jsonDF = df
+val jsonDF = df
       .selectExpr(
         s"concat('{', " +
-          df.columns.map(colName => s"'$colName': \"'\" || $colName || \"'\", ").mkString +
+          df.columns.map(colName => s"\"$colName\": '\"' || $colName || \"'\", ").mkString +
           "'}') as json"
       )
