@@ -65,4 +65,13 @@ object CSVToJsonConverter {
 
       .selectExpr("regexp_replace(json, ': \"(.*?)\"', ': $1') as json")
 
+val jsonDF = df
+      .selectExpr(
+        "to_json(named_struct(" +
+          df.columns.map(colName => s"'$colName', cast($colName as string)").mkString(", ") +
+          ")) as json"
+      )
+      .selectExpr("regexp_replace(json, ': \"(.*?)\"', ': $1') as json")
+
+
 
