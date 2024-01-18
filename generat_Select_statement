@@ -62,3 +62,7 @@ object CSVToJsonConverter {
     spark.stop()
   }
 }
+
+      .selectExpr("regexp_replace(json, ': \"(.*?)\"', ': $1') as json")
+
+
