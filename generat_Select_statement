@@ -1,20 +1,32 @@
+import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{Column, Dataset, SparkSession}
+import org.apache.spark.sql.types._
 
-val spark = SparkSession.builder().appName("Example").getOrCreate()
+object CSVToJsonConverter {
 
-// Example DataFrame with duplicate column names
-val df = Seq((1, "foo", 3.0), (2, "bar", 4.0)).toDF("id", "value", "id")
+  def main(args: Array[String]): Unit = {
+    val spark = SparkSession.builder.appName("CSVToJsonConverter").getOrCreate()
 
-// Function to create a struct column
-protected val makeStruct: (Dataset[_]) => Column = (df: Dataset[_]) => {
-  val aliasedColumns = df.columns.map(name => col(name).as(s"${name}_alias"))
-  struct(aliasedColumns: _*)
+    // Replace "path/to/your/input.csv" with the actual path to your CSV file
+    val csvFilePath = "path/to/your/input.csv"
+
+    // Read CSV file into a DataFrame
+    val df = spark.read.option("header", "true").csv(csvFilePath)
+
+    // Convert DataFrame columns to JSON
+    val columnsJson = df.columns.map(colName => struct(lit(colName).alias("column"), col(colName).alias("data")))
+    val columnsJsonDF = df.select(array(columnsJson: _*).alias("columns"))
+
+    // Convert DataFrame rows to JSON
+    val rowsJsonDF = df.select(to_json(struct(df.columns.map(col): _*)).alias("row"))
+
+    // Combine columns and rows JSON
+    val resultDF = columnsJsonDF.crossJoin(rowsJsonDF)
+
+    // Display the result
+    resultDF.show(truncate = false)
+
+    // Stop the Spark session
+    spark.stop()
+  }
 }
-
-
-// Selecting the struct column
-val resultDF = df.select(makeStruct(df).alias("combined_struct"))
-
-// Show the resulting DataFrame
-resultDF.show()
