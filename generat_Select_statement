@@ -23,8 +23,15 @@ object CSVToJsonConverter {
     // Combine columns and rows JSON
     val resultDF = columnsJsonDF.crossJoin(rowsJsonDF)
 
-    // Display the result
-    resultDF.show(truncate = false)
+    // Convert the DataFrame to a JSON string with each record on a new line
+    val jsonString = resultDF
+      .selectExpr("to_json(struct(columns, row)) as json")
+      .toJSON
+      .collect()
+      .mkString("\n")
+
+    // Print the JSON string
+    println(jsonString)
 
     // Stop the Spark session
     spark.stop()
