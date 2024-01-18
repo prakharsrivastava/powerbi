@@ -18,7 +18,16 @@ object CSVToJsonConverter {
     val columnsJsonDF = df.select(array(columnsJson: _*).alias("columns"))
 
     // Convert DataFrame rows to JSON
-    val rowsJsonDF = df.select(to_json(struct(df.columns.map(col): _*)).alias("row"))
+    val rowsJsonDF = df.select(to_json(struct(df.columns.map(col): _*)).alias("row"))'
+
+
+ val jsonDF = df
+      .selectExpr(
+        "concat('{', " +
+          df.columns.map(colName => s"'$colName': \"'\" || $colName || \"'\", ").mkString +
+          "'}') as json"
+      )
+
 
     // Combine columns and rows JSON
     val resultDF = columnsJsonDF.crossJoin(rowsJsonDF)
