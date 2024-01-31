@@ -1,6 +1,8 @@
-val jsonDF = df
-      .selectExpr(
-        s"concat('{', " +
-          df.columns.map(colName => s"\"$colName\": '\"' || $colName || \"'\", ").mkString +
-          "'}') as json"
-      )
+
+// Pivot the DataFrame dynamically
+val pivotExprs = dynamicCols.map(c => sum(when(col("year") === c, col(c)).otherwise(lit(null))).alias(c))
+
+val pivotDf = df.groupBy("store", "studentid", "accountid").agg(pivotExprs.head, pivotExprs.tail: _*)
+
+// Show the pivoted DataFrame
+pivotDf.show()
