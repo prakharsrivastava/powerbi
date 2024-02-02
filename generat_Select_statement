@@ -1,8 +1,8 @@
+val maybeName: Option[String] = Some("Alice")
 
-// Pivot the DataFrame dynamically
-val pivotExprs = dynamicCols.map(c => sum(when(col("year") === c, col(c)).otherwise(lit(null))).alias(c))
+val greeting = maybeName match {
+  case Some(name) => s"Hello, $name!"
+  case None => "Hello, guest!"
+}
 
-val pivotDf = df.groupBy("store", "studentid", "accountid").agg(pivotExprs.head, pivotExprs.tail: _*)
-
-// Show the pivoted DataFrame
-pivotDf.show()
+println(greeting)
