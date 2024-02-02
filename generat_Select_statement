@@ -6,3 +6,29 @@ val greeting = maybeName match {
 }
 
 println(greeting)
+
+
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
+// Create a SparkSession (if not already created)
+val spark = SparkSession.builder()
+  .appName("Example")
+  .config("spark.master", "local")
+  .getOrCreate()
+
+// Sample DataFrame with an Option[String] column
+val df: DataFrame = spark.createDataFrame(Seq(
+  (Some("scala")),
+  (Some("java")),
+  (None)
+)).toDF("language")
+
+// Filter rows where the string value equals "scala"
+val filteredDF: DataFrame = df.filter {
+  // Pattern match against the Option[String]
+  case row if row.getAs[Option[String]]("language").contains("scala") => true
+  case _ => false
+}
+
+// Show the filtered DataFrame
+filteredDF.show()
