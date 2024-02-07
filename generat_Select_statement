@@ -27,15 +27,13 @@ object Main {
     dff.show()
 
     // Collect DataFrame dff and create map
-    val resultMap: Map[String, List[(String, String, String)]] = dff.collect().map { row =>
+    val resultMap: Map[String, List[(String, String)]] = dff.collect().map { row =>
       val raw_student_id = row.getString(0)
       val report_window = row.getString(1)
       val diagnostic_used = row.getString(2)
       val count = row.getLong(3)
       raw_student_id -> List.fill(count.toInt)((count.toString, diagnostic_used))
-  
     }.toMap
-
     // Print the created map
     println("Map created from DataFrame:")
     resultMap.foreach(println)
