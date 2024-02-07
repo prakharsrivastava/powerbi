@@ -1,34 +1,41 @@
-val maybeName: Option[String] = Some("Alice")
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
-val greeting = maybeName match {
-  case Some(name) => s"Hello, $name!"
-  case None => "Hello, guest!"
+object Main {
+  def main(args: Array[String]): Unit = {
+    // Create SparkSession
+    val spark = SparkSession.builder()
+      .appName("ScalaMapExample")
+      .master("local[2]")
+      .getOrCreate()
+
+    // Sample DataFrame
+    val df: DataFrame = spark.createDataFrame(Seq(
+      (1, 1, "y"),
+      (2, 2, "z"),
+      (3, 3, "x")
+    )).toDF("count_1", "window_1", "baseTypeDiag")
+
+    // Define the map with string as key and tuple as value
+    val myMap: Map[String, (String, String, String)] = Map(
+      "key1" -> ("count_1", "window_1", "baseTypeDiag"),
+      "key2" -> ("count_2", "window_2", "baseTypeDiag"),
+      "key3" -> ("count_3", "window_3", "baseTypeDiag")
+    )
+
+    // Iterate through DataFrame and map values
+    val mappedValues: Seq[(String, (String, String, String))] = df.collect().map {
+      case Row(count_1: Int, window_1: Int, baseTypeDiag: String) =>
+        val mappedValueOption = myMap.get("key1") // You can replace "key1" with the actual key you want to use
+        mappedValueOption match {
+          case Some(mappedValue) => ("key1", mappedValue)
+          case None => ("", ("", "", "")) // Default value when key is not found
+        }
+    }
+
+    // Print mapped values
+    mappedValues.foreach(println)
+
+    // Stop SparkSession
+    spark.stop()
+  }
 }
-
-println(greeting)
-
-
-import org.apache.spark.sql.{DataFrame, SparkSession}
-
-// Create a SparkSession (if not already created)
-val spark = SparkSession.builder()
-  .appName("Example")
-  .config("spark.master", "local")
-  .getOrCreate()
-
-// Sample DataFrame with an Option[String] column
-val df: DataFrame = spark.createDataFrame(Seq(
-  (Some("scala")),
-  (Some("java")),
-  (None)
-)).toDF("language")
-
-// Filter rows where the string value equals "scala"
-val filteredDF: DataFrame = df.filter {
-  // Pattern match against the Option[String]
-  case row if row.getAs[Option[String]]("language").contains("scala") => true
-  case _ => false
-}
-
-// Show the filtered DataFrame
-filteredDF.show()
