@@ -1,33 +1,12 @@
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+  val df: DataFrame = spark.createDataFrame(Seq(
+      ("ginny", "1", "2019-09-15T00:00:00.000Z", "2019-12-15T00:00:00.000Z", "Y", "Y", "N", "N", "N", "N", "male", "White", "MALE", "WHITE", "year2020-2021", "1", "1", "hogwarts", "gryffindor", "English")
+    )).toDF("raw_student_id", "Student_Grade", "Completion_Date", "next_completion_date", "Diagnostic_used_to_establish_Growth_Measures_YN", "Economically_Disadvantaged", "English_Language_Learner", "Hispanic_or_Latino", "Migrant", "Special_Education", "Gender", "Race", "GenderEnum", "RaceEnum", "Academic_Year", "Lesson_Grade", "Lesson_Level", "externalAccountId", "school_id", "Diagnostic_Language")
 
-object Main {
-  def main(args: Array[String]): Unit = {
-    // Create SparkSession
-    val spark = SparkSession.builder()
-      .appName("ScalaMapExample")
-      .master("local[2]")
-      .getOrCreate()
-
-    // Sample DataFrame
-    val df: DataFrame = spark.createDataFrame(Seq(
-      (1, 1, "Y"),
-      (2, 2, "Z"),
-      (3, 3, "X")
-    )).toDF("col1", "col2", "col3")
-
-    // Define the map with string as key and tuple as value
-    val myMap: Map[String, (String, String, String)] = Map(
-      "key1" -> ("1", "1", "Y"),
-      "key2" -> ("2", "2", "Z"),
-      "key3" -> ("3", "3", "X")
-    )
-
-   // Iterate through DataFrame and check if rows match the map values
-    val rowsMatched: Boolean = df.collect().forall {
-      case Row(col1: Int, col2: Int, col3: String) =>
-        val key = s"$col1$col2$col3"
-        myMap.get(key) match {
-          case Some((mapCol1, mapCol2, mapCol3)) => col1.toString == mapCol1 && col2.toString == mapCol2 && col3 == mapCol3
-          case None => false
-        }
-    }
+    // Convert DataFrame to Map[String, (String, String, String)]
+    val expectedData: Map[String, (String, String, String)] = df.collect().map { row =>
+      val raw_student_id = row.getString(0)
+      val student_grade = row.getString(1)
+      val completion_date = row.getString(2)
+      val diagnostic_used = row.getString(4)
+      raw_student_id -> (student_grade, completion_date, diagnostic_used)
+    }.toMap
