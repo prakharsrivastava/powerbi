@@ -32,7 +32,8 @@ object Main {
       val report_window = row.getString(1)
       val diagnostic_used = row.getString(2)
       val count = row.getLong(3)
-      raw_student_id -> List((count.toString, report_window, diagnostic_used))
+      raw_student_id -> List.fill(count.toInt)((count.toString, diagnostic_used))
+  
     }.toMap
 
     // Print the created map
