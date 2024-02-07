@@ -22,20 +22,12 @@ object Main {
       "key3" -> ("3", "3", "X")
     )
 
-    // Iterate through DataFrame and map values
-    val mappedValues: Seq[(String, (String, String, String))] = df.collect().map {
+   // Iterate through DataFrame and check if rows match the map values
+    val rowsMatched: Boolean = df.collect().forall {
       case Row(col1: Int, col2: Int, col3: String) =>
-        val mappedValueOption = myMap.get("key1") // You can replace "key1" with the actual key you want to use
-        mappedValueOption match {
-          case Some(mappedValue) => ("key1", mappedValue)
-          case None => ("", ("", "", "")) // Default value when key is not found
+        val key = s"$col1$col2$col3"
+        myMap.get(key) match {
+          case Some((mapCol1, mapCol2, mapCol3)) => col1.toString == mapCol1 && col2.toString == mapCol2 && col3 == mapCol3
+          case None => false
         }
     }
-
-    // Print mapped values
-    mappedValues.foreach(println)
-
-    // Stop SparkSession
-    spark.stop()
-  }
-}
