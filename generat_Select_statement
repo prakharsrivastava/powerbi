@@ -15,16 +15,21 @@ object Main {
       ("ginny", "2", "2020-09-15T00:00:00.000Z", "2020-12-15T00:00:00.000Z", "N", "N", "Y", "N", "N", "N", "female", "Asian", "FEMALE", "ASIAN", "year2021-2022", "2", "2", "hogwarts", "gryffindor", "English",1)
     )).toDF("raw_student_id", "Student_Grade", "Completion_Date", "next_completion_date", "Diagnostic_used_to_establish_Growth_Measures_YN", "Economically_Disadvantaged", "English_Language_Learner", "Hispanic_or_Latino", "Migrant", "Special_Education", "Gender", "Race", "GenderEnum", "RaceEnum", "Academic_Year", "Lesson_Grade", "Lesson_Level", "externalAccountId", "school_id", "Diagnostic_Language","report_window")
 
-    // Group DataFrame by "raw_student_id" and collect values into a list of tuples
-    val resultMap: Map[String, List[(String, String, String)]] = df.groupBy("raw_student_id")
-      .agg(collect_list(struct("Student_Grade", "Completion_Date", "Diagnostic_used_to_establish_Growth_Measures_YN")).as("values"))
-      .collect()
-      .map { row =>
-        val raw_student_id = row.getString(0)
-        val values = row.getAs[Seq[(String, String, String)]]("values").toList
-        raw_student_id -> values
-      }
-      .toMap
+    // Group DataFrame by "raw_student_id" and "reporting_window"
+    val dff= df.groupBy("raw_student_id", "report_window").agg(
+      count("*").as("count"),
+      first("report_window").as("reporting_window"),
+      first("Diagnostic_used_to_establish_Growth_Measures_YN").as("Diagnostic_used_to_establish_Growth_Measures_YN")
+    ).collect()
+
+    // Create map from DataFrame
+    val resultMap: Map[String, List[(String, String, String)]] = dff.map { row =>
+      val raw_student_id = row.getString(0)
+      val reporting_window = row.getString(1)
+      val count = row.getLong(2)
+      val diagnostic_used = row.getString(3)
+      raw_student_id -> List((count.toString, reporting_window, diagnostic_used))
+    }.toMap
 
     // Print the created map
     println("Map created from DataFrame:")
