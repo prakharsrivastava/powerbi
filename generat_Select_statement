@@ -1,1 +1,29 @@
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.DataFrame
+
+// Create a DataFrame with your example data
+val data = Seq(
+  (null, true, null, null),
+  ("brown", true, "blue", null),
+  (null, null, null, null),
+  ("tyr", "red", null, null)
+)
+val df = data.toDF("value_0", "value_1", "value_2", "value_3")
+
+// Define the columns to keep
+val columnsToKeep = df.columns
+
+// Stack the DataFrame
+val stackedDf = df.selectExpr(s"stack(${columnsToKeep.length}," + columnsToKeep.zipWithIndex.map { case (col, idx) => s"'$col', $col" }.mkString(", ") + ") as (key, value)")
+
+// Filter out rows with null values in the value column
+val filteredDf = stackedDf.filter(col("value").isNotNull)
+
+// Pivot the DataFrame
+val pivotedDf = filteredDf.groupBy("key").pivot("value").agg(first("value"))
+
+// Join the pivoted DataFrame back to the original DataFrame using the key column
+val resultDf = df.join(pivotedDf, df.columns.map(col): _*)
+
+resultDf.show()
 
