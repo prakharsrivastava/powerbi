@@ -1,29 +1,37 @@
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.DataFrame
 
-// Create a DataFrame with your example data
-val data = Seq(
-  (null, true, null, null),
-  ("brown", true, "blue", null),
-  (null, null, null, null),
-  ("tyr", "red", null, null)
-)
-val df = data.toDF("value_0", "value_1", "value_2", "value_3")
+object Main {
+  def main(args: Array[String]): Unit = {
+    val spark = SparkSession.builder()
+      .appName("ColumnSelection")
+      .master("local[*]")
+      .getOrCreate()
 
-// Define the columns to keep
-val columnsToKeep = df.columns
+    import spark.implicits._
 
-// Stack the DataFrame
-val stackedDf = df.selectExpr(s"stack(${columnsToKeep.length}," + columnsToKeep.zipWithIndex.map { case (col, idx) => s"'$col', $col" }.mkString(", ") + ") as (key, value)")
+    val data = Seq(
+      (true, true, true),
+      (false, true, true),
+      (true, true, true)
+    )
 
-// Filter out rows with null values in the value column
-val filteredDf = stackedDf.filter(col("value").isNotNull)
+    val df = data.toDF("col1", "col2", "col3")
 
-// Pivot the DataFrame
-val pivotedDf = filteredDf.groupBy("key").pivot("value").agg(first("value"))
+    val resultDF = df.withColumn("result", lit(false)) // Initialize result column with false
 
-// Join the pivoted DataFrame back to the original DataFrame using the key column
-val resultDf = df.join(pivotedDf, df.columns.map(col): _*)
+    val columnNames = df.columns
 
-resultDf.show()
+    val updatedDF = columnNames.foldLeft(resultDF) { (df, columnName) =>
+      df.withColumn(columnName, when(col(columnName), lit(columnName)).otherwise(lit(null)))
+    }
 
+    val finalDF = updatedDF.withColumn("result", when(col("col1").isNotNull && col("col2").isNotNull && col("col3").isNotNull, lit(true)).otherwise(lit(false)))
+
+    finalDF.select("result", "col1", "col2", "col3").collect().foreach { row =>
+      val result = row.getAs[Boolean]("result")
+      val trueColumns = row.getValuesMap[Boolean](Seq("col1", "col2", "col3")).filter(_._2).keys.toList
+      println(s"$result, $trueColumns")
+    }
+  }
+}
