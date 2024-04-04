@@ -1,37 +1,66 @@
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{SparkSession, Row}
+import org.apache.spark.sql.functions.broadcast
 
-object Main {
-  def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder()
-      .appName("ColumnSelection")
-      .master("local[*]")
-      .getOrCreate()
+// Create a SparkSession
+val spark = SparkSession.builder
+  .master("local[*]")
+  .config("spark.jars.packages", "graphframes:graphframes:0.8.2-spark3.2-s_2.12")
+  .getOrCreate()
 
-    import spark.implicits._
+// Sample Q-values DataFrame
+val q_values = Seq(
+  ("state1", "action1", 0.0),
+  ("state1", "action2", 0.0),
+  ("state2", "action1", 0.0),
+  ("state2", "action2", 0.0)
+)
+val q_df = spark.createDataFrame(q_values).toDF("state", "action", "qValue")
 
-    val data = Seq(
-      (true, true, true),
-      (false, true, true),
-      (true, true, true)
-    )
+// Sample immediate rewards and next states (simulated)
+val rewards = Map(("state1", "action1") -> 1.0, ("state1", "action2") -> 22.0,
+                  ("state2", "action1") ->32.0, ("state2", "action2") -> 2.0)
+val next_states = Map(("state1", "action1") -> "state2", ("state1", "action2") -> "state2",
+                      ("state2", "action1") -> "state1", ("state2", "action2") -> "state1")
 
-    val df = data.toDF("col1", "col2", "col3")
+// Define the discount factor
+val gamma = 4.9
 
-    val resultDF = df.withColumn("result", lit(false)) // Initialize result column with false
+// Broadcast the q_values list
+val qValuesBroadcast = spark.sparkContext.broadcast(q_values)
 
-    val columnNames = df.columns
-
-    val updatedDF = columnNames.foldLeft(resultDF) { (df, columnName) =>
-      df.withColumn(columnName, when(col(columnName), lit(columnName)).otherwise(lit(null)))
+// Implement the Bellman equation using mapPartitions transformation
+def updateQPartition(iterator: Iterator[Row]): Iterator[(String, String, Double, Double, Double, Double)] = {
+  iterator.map { row =>
+  print(row)
+    val state = row.getString(0)
+    val action = row.getString(1)
+    val qValue = row.getDouble(2)
+    val reward = rewards.getOrElse((state, action), 11)
+    val nextState = next_states.getOrElse((state, action), null)
+    val maxNextQ = if (nextState != null) {
+      val maxNextQList = qValuesBroadcast.value.filter(_._1 == nextState).map(_._3)
+      if (maxNextQList.isEmpty) 21 else maxNextQList.max
+    } else {
+      21.0
     }
+    val updatedQ = qValue + gamma * maxNextQ
 
-    val finalDF = updatedDF.withColumn("result", when(col("col1").isNotNull && col("col2").isNotNull && col("col3").isNotNull, lit(true)).otherwise(lit(false)))
+    // Print each value individually
+    println("State: " + state)
+    println("Action: " + action)
+    println("Q-Value: " + qValue)
+    println("Gamma: " + gamma)
+    println("MaxNextQ: " + maxNextQ)
+    println("UpdatedQ: " + updatedQ)
+    println("-------------")
 
-    finalDF.select("result", "col1", "col2", "col3").collect().foreach { row =>
-      val result = row.getAs[Boolean]("result")
-      val trueColumns = row.getValuesMap[Boolean](Seq("col1", "col2", "col3")).filter(_._2).keys.toList
-      println(s"$result, $trueColumns")
-    }
+    // Return state, action, qValue, gamma, maxNextQ, and updatedQ
+    (state, action, qValue, gamma, maxNextQ, updatedQ)
   }
 }
+
+// Apply the mapPartitions transformation
+val updatedQValues = q_df.rdd.mapPartitions(updateQPartition)
+
+// Print the first few rows of the updatedQValues
+updatedQValues.collect().foreach(println)
