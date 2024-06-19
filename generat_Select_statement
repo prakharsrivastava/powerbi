@@ -4,7 +4,7 @@ import org.apache.spark.sql.functions._
 object Main extends App {
   // Initialize SparkSession
   val spark = SparkSession.builder()
-    .appName("DataFrame to Sequence")
+    .appName("Filter DataFrame")
     .master("local[*]")
     .getOrCreate()
 
@@ -14,25 +14,29 @@ object Main extends App {
   val df = Seq(
     (1, "yes", "XL"),
     (2, "no", "M"),
-    (3, "yes", "S")
+    (3, "yes", "L"),
+    (4, "", "XL")
   ).toDF("student_id", "Gifted", "shoe_size")
 
-  // Identify the columns to be used for demographics
-  val demographicColumns = df.columns.filter(_ != "student_id")
+  // Define the demographic conditions
+  val demographicData = Seq(
+    StatedemographicsParam(Some("Gifted"), Some(Seq("yes", "no"))),
+    StatedemographicsParam(Some("shoe size"), Some(Seq("XL", "M", "S")))
+  )
+  val reportParam = ReportParam(Some(demographicData))
 
-  // Extract and transform data
-  val studentData = df.map(row => {
-    val studentId = row.getAs[Int]("student_id")
-    val attributes = demographicColumns.map { col =>
-      (col, row.getAs[String](col))
-    }.toList
-    (studentId, attributes)
-  }).collect().toMap
-
-  // Print the result
-  studentData.foreach { case (studentId, attributes) =>
-    println(s"Student ID: $studentId -> Attributes: $attributes")
+  // Filter conditions
+  val conditions = reportParam.statedemographics.get.map { param =>
+    val attribute = param.attribute.getOrElse("")
+    val values = param.values.getOrElse(Seq())
+    col(attribute).isin(values: _*)
   }
+
+  // Apply filter conditions
+  val filteredDf = df.filter(conditions.reduce(_ && _))
+
+  // Show the filtered DataFrame
+  filteredDf.show()
 
   // Stop SparkSession
   spark.stop()
