@@ -1,19 +1,39 @@
-
-
-  val g = d.map { demoJson =>
-    val attribute = demoJson.hcursor.get[Option[String]]("a").getOrElse(None)
-    val values = demoJson.hcursor.get[Option[Seq[String]]]("v").getOrElse(None)
-    sdp(attribute, values)
-  }
-
-  ReportParam(Some(demo))
-}
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
 
 object Main extends App {
-  val jsonString = """
-  [
-    { "a": "g", "values": ["yes", "no"] },
-    { "c": "d", "values": ["XL", "M", "S"] }
-  ]
+  // Initialize SparkSession
+  val spark = SparkSession.builder()
+    .appName("DataFrame to Sequence")
+    .master("local[*]")
+    .getOrCreate()
 
+  import spark.implicits._
+
+  // Sample DataFrame with student_id
+  val df = Seq(
+    (1, "yes", "XL"),
+    (2, "no", "M"),
+    (3, "yes", "S")
+  ).toDF("student_id", "Gifted", "shoe_size")
+
+  // Identify the columns to be used for demographics
+  val demographicColumns = df.columns.filter(_ != "student_id")
+
+  // Extract and transform data
+  val studentData = df.map(row => {
+    val studentId = row.getAs[Int]("student_id")
+    val attributes = demographicColumns.map { col =>
+      (col, row.getAs[String](col))
+    }.toList
+    (studentId, attributes)
+  }).collect().toMap
+
+  // Print the result
+  studentData.foreach { case (studentId, attributes) =>
+    println(s"Student ID: $studentId -> Attributes: $attributes")
+  }
+
+  // Stop SparkSession
+  spark.stop()
 }
