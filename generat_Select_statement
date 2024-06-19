@@ -1,40 +1,19 @@
-Subject: Inquiry Regarding Health Insurance Policy and Coverage Details
 
-Dear [Insurance Representative's Name],
 
-I hope this email finds you well. My name is Vanishree, and I am writing to inquire about the details of my health insurance policy and additional coverage options. Please find below the specifics of my queries:
+  val g = d.map { demoJson =>
+    val attribute = demoJson.hcursor.get[Option[String]]("a").getOrElse(None)
+    val values = demoJson.hcursor.get[Option[Seq[String]]]("v").getOrElse(None)
+    sdp(attribute, values)
+  }
 
-Existing Policy Claim and Copay:
+  ReportParam(Some(demo))
+}
 
-My existing policy has no room limit. I intend to claim an amount of ₹30,000 from my existing policy and the remaining amount from my new policy.
-Could you confirm if there will be any copay involved or any potential issues while claiming the amount of ₹30,000?
-Accidental Cover:
+object Main extends App {
+  val jsonString = """
+  [
+    { "a": "g", "values": ["yes", "no"] },
+    { "c": "d", "values": ["XL", "M", "S"] }
+  ]
 
-Is accidental cover included in my current policy? If so, how much is covered?
-Invoice for Earlier Claim:
-
-I have previously shared the invoice for an earlier claim. Could you confirm the status of that claim?
-Lasik Surgery Coverage:
-
-My vision power is high, and I am considering lasik surgery. Could you recommend a plan that covers lasik surgery?
-Additionally, what plans cover OPD and routine body check-ups?
-Premium for Additional Coverage:
-
-Could you confirm the premium if I wish to include dental and laser treatments in my policy?
-If I add dependents (spouse and daughter), will they be covered, and what will be the ratio of coverage?
-How soon will the claim amount be replenished if exhausted?
-Impact on Premium:
-
-Will my premium increase if I add my spouse to the policy? How will the claims be distributed?
-Will the premium remain the same with each passing year?
-No Claim Bonus:
-
-What is the no claim bonus for my policy?
-Future Coverage for Dependents:
-
-If I add my spouse and daughter in the future, will they be covered under the same policy?
-I appreciate your assistance in addressing these queries. Please provide detailed information on the above points so that I can make informed decisions regarding my health insurance coverage.
-
-Thank you for your prompt attention to this matter.
-
-Best regards,
+}
