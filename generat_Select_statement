@@ -1,43 +1,6 @@
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
-
-object Main extends App {
-  // Initialize SparkSession
-  val spark = SparkSession.builder()
-    .appName("Filter DataFrame")
-    .master("local[*]")
-    .getOrCreate()
-
-  import spark.implicits._
-
-  // Sample DataFrame with student_id
-  val df = Seq(
-    (1, "yes", "XL"),
-    (2, "no", "M"),
-    (3, "yes", "L"),
-    (4, "", "XL")
-  ).toDF("student_id", "Gifted", "shoe_size")
-
-  // Define the demographic conditions
-  val demographicData = Seq(
-    StatedemographicsParam(Some("Gifted"), Some(Seq("yes", "no"))),
-    StatedemographicsParam(Some("shoe size"), Some(Seq("XL", "M", "S")))
-  )
-  val reportParam = ReportParam(Some(demographicData))
-
-  // Filter conditions
-  val conditions = reportParam.statedemographics.get.map { param =>
-    val attribute = param.attribute.getOrElse("")
-    val values = param.values.getOrElse(Seq())
-    col(attribute).isin(values: _*)
-  }
-
-  // Apply filter conditions
-  val filteredDf = df.filter(conditions.reduce(_ && _))
-
-  // Show the filtered DataFrame
-  filteredDf.show()
-
-  // Stop SparkSession
-  spark.stop()
+def removeArrayType(schema: StructType): StructType = {
+  val newFields = schema.fields.filterNot(_.dataType.isInstanceOf[ArrayType])
+  StructType(newFields)
 }
+
+val newSchema = removeArrayType(originalSchema)
