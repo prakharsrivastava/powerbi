@@ -1,6 +1,39 @@
-def removeArrayType(schema: StructType): StructType = {
-  val newFields = schema.fields.filterNot(_.dataType.isInstanceOf[ArrayType])
-  StructType(newFields)
-}
+import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 
-val newSchema = removeArrayType(originalSchema)
+// Initialize Spark session
+val spark = SparkSession.builder()
+  .appName("Filter DataFrame by Dynamic Schema")
+  .master("local[*]")
+  .getOrCreate()
+
+// Sample data with varying column names
+val data = Seq(
+  ("{\"EYEcolor\": \"blue\", \"gifterd\": null}", "some_string"),
+  ("{\"EYEcolor\": \"green\", \"gifterd\": \"someone\"}", "other_string"),
+  ("{\"EYEcolor\": \"blue\", \"gifterd\": \"someone_else\"}", "another_string")
+)
+
+// Example dynamic schema string (you can replace this with your dynamic schema retrieval logic)
+val schemaToMatch = "{\"EYEcolor\": \"blue\", \"gifterd\": null}"
+
+// Convert sample data to DataFrame
+val df = spark.createDataFrame(data).toDF("demog", "other_column")
+
+// Define a UDF to check if a row matches the schema
+val matchesSchemaUDF = udf((json: String, schemaStr: String) => {
+  try {
+    val jsonMap = spark.read.json(Seq(json).toDS).first().getAs 
+    val expectedMap = DataType.fromJson(schemaStr).asInstanceOf[Map[String, Any]]
+    jsonMap == expectedMap
+  } catch {
+    case _: Throwable => false
+  }
+})
+
+// Filter the DataFrame using the UDF and the dynamic schema string
+val filteredDF = df.filter(matchesSchemaUDF(col("demog"), lit(schemaToMatch)))
+
+// Show the filtered DataFrame
+filteredDF.show(truncate = false)
