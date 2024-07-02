@@ -19,20 +19,16 @@ object DemoCheck extends App {
   // Create DataFrame
   val df = data.toDF("raw_stu_id", "demo")
 
-  // Function to cast ArrayType columns to StringType
-  def castArrayTypeColumnsToString(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    df.schema.fields.foldLeft(df) { (tempDf, field) =>
-      field.dataType match {
-        case ArrayType(_, _) =>
-          tempDf.withColumn(field.name, F.col(field.name).cast(StringType))
-        case _ =>
-          tempDf
-      }
-    }
+  // Identify ArrayType columns
+  val arrayTypeColumns = df.schema.fields.collect {
+    case field if field.dataType.isInstanceOf[ArrayType] => field.name
   }
 
-  // Apply the function to cast appropriate columns
-  val newDf = castArrayTypeColumnsToString(df)
+  // Cast ArrayType columns to StringType
+  var newDf = df
+  for (columnName <- arrayTypeColumns) {
+    newDf = newDf.withColumn(columnName, F.col(columnName).cast(StringType))
+  }
 
   // Show the DataFrame
   newDf.show(false)
