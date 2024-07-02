@@ -10,28 +10,24 @@ object DemoCheck extends App {
 
   import spark.implicits._
 
-  // Sample data with ArrayType column
+  // Sample data
   val data = Seq(
-    (Array("{\"eye_color\": null}"), "123", "John"),
-    (Array("{\"eye_color\": \"blue\"}"), "124", "Jane")
+    ("1110", Array("{\"color\":\"black\"}", "{\"gift\":\"no\"}")),
+    ("1111", Array("{\"color\":\"blue\"}", "{\"gift\":\"yes\"}"))
   )
 
   // Create DataFrame
-  val df = data.toDF("eye_color_array", "student_id", "name")
+  val df = data.toDF("raw_stu_id", "demo")
 
-  // Function to cast ArrayType columns containing JSON null to StringType
+  // Function to cast ArrayType columns to StringType
   def castArrayTypeColumnsToString(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    val arrayColumnsWithJsonNull = df.columns.filter { columnName =>
-      df.schema(columnName).dataType match {
-        case ArrayType(StringType, _) =>
-          val containsJsonNull = df.select(columnName).as[Array[String]].collect().exists(_.exists(_.contains("\"eye_color\": null")))
-          containsJsonNull
-        case _ => false
+    df.schema.fields.foldLeft(df) { (tempDf, field) =>
+      field.dataType match {
+        case ArrayType(_, _) =>
+          tempDf.withColumn(field.name, F.col(field.name).cast(StringType))
+        case _ =>
+          tempDf
       }
-    }
-
-    arrayColumnsWithJsonNull.foldLeft(df) { (tempDf, columnName) =>
-      tempDf.withColumn(columnName, F.col(columnName).cast(StringType))
     }
   }
 
@@ -39,7 +35,7 @@ object DemoCheck extends App {
   val newDf = castArrayTypeColumnsToString(df)
 
   // Show the DataFrame
-  newDf.show()
+  newDf.show(false)
   newDf.printSchema()
 
   // Stop the Spark session
