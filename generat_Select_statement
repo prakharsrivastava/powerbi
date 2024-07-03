@@ -1,6 +1,36 @@
- val parseCsvToArray = udf((csv: String) => {
-    csv.split(", ").map { pair =>
-      val Array(key, value) = pair.split(":")
-      Row(key, value)
-    }
-  }, ArrayType(targetArraySchema)). 
+import org.apache.spark.sql.{SparkSession, Row}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+object ConvertJsonStringToColumns extends App {
+  // Initialize SparkSession
+  val spark = SparkSession.builder
+    .appName("Convert Json String to Columns")
+    .master("local[*]")
+    .getOrCreate()
+
+  import spark.implicits._
+
+  // Example DataFrame with StringType column containing JSON-like strings
+  val data = Seq(
+    ("Smith", """[{"label":"EYEcolor","value":"blue"},{"label":"gifterd","value":null}]"""),
+    ("Johnson", """[{"label":"EYEcolor","value":"green"},{"label":"gifterd","value":"yes"}]""")
+  ).toDF("lastname", "demo")
+
+  // Extract the JSON-like strings into new columns
+  val extractedDF = data.withColumn("demo_extracted", from_json($"demo", ArrayType(StructType(Seq(
+    StructField("label", StringType, true),
+    StructField("value", StringType, true)
+  )))))
+
+  // Pivot the extracted columns
+  val pivotedDF = extractedDF.select($"lastname", explode($"demo_extracted").as("demo"))
+    .select($"lastname", $"demo.label", $"demo.value")
+    .groupBy("lastname")
+    .pivot("label")
+    .agg(first("value"))
+
+  // Show the transformed DataFrame
+  pivotedDF.show(false)
+  pivotedDF.printSchema()
+}
