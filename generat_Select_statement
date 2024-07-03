@@ -17,14 +17,20 @@ object ConvertJsonStringToColumns extends App {
     ("Johnson", """[{"label":"EYEcolor","value":"green"},{"label":"gifterd","value":"yes"}]""")
   ).toDF("lastname", "demo")
 
-  // Extract the JSON-like strings into new columns
-  val extractedDF = data.withColumn("demo_extracted", from_json($"demo", ArrayType(StructType(Seq(
+  // Define the schema for the JSON string
+  val jsonSchema = ArrayType(StructType(Seq(
     StructField("label", StringType, true),
     StructField("value", StringType, true)
-  )))))
+  )))
 
-  // Pivot the extracted columns
-  val pivotedDF = extractedDF.select($"lastname", explode($"demo_extracted").as("demo"))
+  // Extract the JSON-like strings into new columns
+  val extractedDF = data.withColumn("demo_extracted", from_json($"demo", jsonSchema))
+
+  // Explode the array into individual rows
+  val explodedDF = extractedDF.withColumn("demo", explode($"demo_extracted"))
+
+  // Pivot the exploded rows to columns
+  val pivotedDF = explodedDF
     .select($"lastname", $"demo.label", $"demo.value")
     .groupBy("lastname")
     .pivot("label")
