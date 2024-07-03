@@ -1,43 +1,32 @@
-import org.apache.spark.sql.{SparkSession, Row}
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object ConvertStringToArrayType extends App {
-  // Initialize SparkSession
-  val spark = SparkSession.builder
-    .appName("Convert String to ArrayType")
-    .master("local[*]")
-    .getOrCreate()
-
-  import spark.implicits._
-
-  // Example DataFrame with StringType column containing JSON-like strings
-  val data = Seq(
-    ("Smith", """[{"label":"EYEcolor","value":"blue"},{"label":"gifterd","value":null}]"""),
-    ("Johnson", """[{"label":"EYEcolor","value":"green"},{"label":"gifterd","value":"yes"}]""")
-  ).toDF("lastname", "demo")
-
-  // Define the target schema for the JSON string
-  val targetSchema = ArrayType(StructType(Seq(
-    StructField("label", StringType, true),
-    StructField("value", StringType, true)
-  )))
-
-  // Define a UDF to parse the JSON-like string into an ArrayType of StructType
-  val parseJsonUDF = udf((jsonString: String) => {
-    val jsonArray = jsonString.replaceAll("\\s+", "").stripPrefix("[").stripSuffix("]").split("\\},\\{")
-    val rows = jsonArray.map { item =>
-      val cleanedItem = item.replaceAll("[{}\"]", "")
-      val Array(label, value) = cleanedItem.split(",")
-      Row(label.split(":")(1), value.split(":")(1))
-    }
-    rows
-  }, targetSchema)
-
-  // Apply the UDF to convert the StringType column to ArrayType
-  val convertedDF = data.withColumn("demo_array", parseJsonUDF($"demo"))
-
-  // Show the transformed DataFrame
-  convertedDF.show(false)
-  convertedDF.printSchema()
+// Define a function to revert a specific column from ArrayType to StringType
+def revertArrayToString(schema: StructType, columnName: String): StructType = {
+  val newFields = schema.fields.map {
+    case StructField(name, ArrayType(_, _), nullable, metadata) if name == columnName =>
+      StructField(name, StringType, nullable, metadata)
+    case StructField(name, struct: StructType, nullable, metadata) =>
+      StructField(name, revertArrayToString(struct, columnName), nullable, metadata)
+    case other =>
+      other
+  }
+  StructType(newFields)
 }
+
+// Example usage:
+val originalSchema = StructType(Seq(
+  StructField("lastname", StringType, nullable = true),
+  StructField("demo", ArrayType(
+    StructType(Seq(
+      StructField("label", StringType, nullable = true),
+      StructField("value", StringType, nullable = true)
+    ))
+  ), nullable = true)
+))
+
+// Convert "demo" column from ArrayType back to StringType
+val updatedSchema = revertArrayToString(originalSchema, "demo")
+
+// Print the updated schema
+println("Updated Schema:")
+updatedSchema.printTreeString()
