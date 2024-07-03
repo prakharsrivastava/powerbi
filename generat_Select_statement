@@ -10,22 +10,20 @@ object ConvertArrayType extends App {
     ))))
   ))
 
-  // Function to convert ArrayType to StringType in a schema
-  def convertArrayType(schema: DataType): DataType = {
-    schema match {
-      case StructType(fields) => 
-        StructType(fields.map {
-          case StructField(name, ArrayType(_, _), nullable, metadata) => 
-            StructField(name, StringType, nullable, metadata)
-          case StructField(name, fieldType, nullable, metadata) => 
-            StructField(name, convertArrayType(fieldType), nullable, metadata)
-        })
+  // Function to convert ArrayType to StringType in the schema without using schema.map
+  def convertSchema(schema: StructType): StructType = {
+    val newFields = schema.fields.map {
+      case StructField(name, arrayType: ArrayType, nullable, metadata) =>
+        StructField(name, StringType, nullable, metadata)
+      case StructField(name, structType: StructType, nullable, metadata) =>
+        StructField(name, convertSchema(structType), nullable, metadata)
       case other => other
     }
+    StructType(newFields)
   }
 
   // Convert the schema
-  val newSchema = convertArrayType(originalSchema).asInstanceOf[StructType]
+  val newSchema = convertSchema(originalSchema)
 
   // Print the original and new schema
   println("Original Schema:")
