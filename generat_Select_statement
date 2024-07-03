@@ -1,3 +1,43 @@
-val csvColumns = data.schema.fields.collect {
-    case StructField(name, StringType, _, _) if name == "demo" => name
+import org.apache.spark.sql.{SparkSession, Row}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+object ConvertArrayTypeToStringType extends App {
+  // Initialize SparkSession
+  val spark = SparkSession.builder
+    .appName("Convert ArrayType to StringType")
+    .master("local[*]")
+    .getOrCreate()
+
+  import spark.implicits._
+
+  // Example DataFrame with various column types
+  val data = Seq(
+    ("Smith", Seq(Row("color", "black"), Row("gift", "no"))),
+    ("Johnson", Seq(Row("color", "white"), Row("gift", "yes"))),
+    ("Williams", Array(1, 2, 3)),
+    ("Brown", "Not an array")
+  ).toDF("lastname", "demo")
+
+  // Function to check if a column is of ArrayType
+  def isArrayType(column: StructField): Boolean = column.dataType match {
+    case _: ArrayType => true
+    case _ => false
   }
+
+  // Convert ArrayType columns to StringType
+  val newSchema = StructType(data.schema.map {
+    case StructField(name, ArrayType(_, _), nullable, metadata) =>
+      StructField(name, StringType, nullable, metadata)
+    case other => other
+  })
+
+  val newDf = spark.createDataFrame(data.rdd, newSchema)
+
+  // Show the transformed DataFrame
+  newDf.show(false)
+
+  // Print the schema of the new DataFrame
+  println("New Schema:")
+  newDf.printSchema()
+}
