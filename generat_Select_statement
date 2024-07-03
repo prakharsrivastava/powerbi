@@ -1,49 +1,6 @@
-import org.apache.spark.sql.{SparkSession, Row}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
-
-object ConvertStringToArrayType extends App {
-  // Initialize SparkSession
-  val spark = SparkSession.builder
-    .appName("Convert StringType to ArrayType")
-    .master("local[*]")
-    .getOrCreate()
-
-  import spark.implicits._
-
-  // Example DataFrame with StringType column containing JSON-like strings
-  val data = Seq(
-    ("Smith", """[{"key": "EYEcolor", "value": "blue"}]"""),
-    ("Johnson", """[{"key": "gifterd", "value": null}]""")
-  ).toDF("lastname", "demo")
-
-  // Original schema of the `demo` column before it was converted to StringType
-  val originalArraySchema = new StructType()
-    .add("key", StringType)
-    .add("value", StringType)
-
-  // Function to parse JSON-like string to ArrayType of StructType
-  def parseJsonString(jsonStr: String): Seq[Row] = {
-    import scala.util.parsing.json.JSON
-
-    JSON.parseFull(jsonStr) match {
-      case Some(parsedJson: List[Map[String, Any]]) =>
-        parsedJson.map { map =>
-          Row(map("key").toString, map.getOrElse("value", null).asInstanceOf[AnyRef])
-        }
-      case _ => Seq.empty[Row]
+ val parseCsvToArray = udf((csv: String) => {
+    csv.split(", ").map { pair =>
+      val Array(key, value) = pair.split(":")
+      Row(key, value)
     }
-  }
-
-  // Convert StringType column back to ArrayType using UDF
-  val jsonStringToArray = udf(parseJsonString _)
-
-  val newDf = data.withColumn("demo", jsonStringToArray($"demo"))
-
-  // Show the transformed DataFrame
-  newDf.show(false)
-
-  // Print the schema of the new DataFrame
-  println("New Schema:")
-  newDf.printSchema()
-}
+  }, ArrayType(targetArraySchema)). 
