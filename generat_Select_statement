@@ -1,39 +1,36 @@
-import org.apache.spark.sql.{SparkSession, functions => F}
 import org.apache.spark.sql.types._
 
-object DemoCheck extends App {
-  // Initialize Spark session
-  val spark = SparkSession.builder
-    .appName("DemoCheck")
-    .master("local[*]")
-    .getOrCreate()
+object ConvertArrayType extends App {
+  // Define the original schema
+  val originalSchema = StructType(Seq(
+    StructField("lastname", StringType),
+    StructField("demo", ArrayType(StructType(Seq(
+      StructField("label", StringType),
+      StructField("value", StringType)
+    ))))
+  ))
 
-  import spark.implicits._
-
-  // Sample data
-  val data = Seq(
-    ("1110", Array("{\"color\":\"black\"}", "{\"gift\":\"no\"}")),
-    ("1111", Array("{\"color\":\"blue\"}", "{\"gift\":\"yes\"}"))
-  )
-
-  // Create DataFrame
-  val df = data.toDF("raw_stu_id", "demo")
-
-  // Identify ArrayType columns
-  val arrayTypeColumns = df.schema.fields.collect {
-    case field if field.dataType.isInstanceOf[ArrayType] => field.name
+  // Function to convert ArrayType to StringType in a schema
+  def convertArrayType(schema: DataType): DataType = {
+    schema match {
+      case StructType(fields) => 
+        StructType(fields.map {
+          case StructField(name, ArrayType(_, _), nullable, metadata) => 
+            StructField(name, StringType, nullable, metadata)
+          case StructField(name, fieldType, nullable, metadata) => 
+            StructField(name, convertArrayType(fieldType), nullable, metadata)
+        })
+      case other => other
+    }
   }
 
-  // Cast ArrayType columns to StringType
-  var newDf = df
-  for (columnName <- arrayTypeColumns) {
-    newDf = newDf.withColumn(columnName, F.col(columnName).cast(StringType))
-  }
+  // Convert the schema
+  val newSchema = convertArrayType(originalSchema).asInstanceOf[StructType]
 
-  // Show the DataFrame
-  newDf.show(false)
-  newDf.printSchema()
+  // Print the original and new schema
+  println("Original Schema:")
+  println(originalSchema.prettyJson)
 
-  // Stop the Spark session
-  spark.stop()
+  println("New Schema:")
+  println(newSchema.prettyJson)
 }
