@@ -1,31 +1,38 @@
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 
-// Define a function to revert a specific column from StringType to ArrayType
-def revertStringToArray(schema: StructType, columnName: String, arrayElementType: DataType): StructType = {
-  val newFields = schema.fields.map {
-    case StructField(name, StringType, nullable, metadata) if name == columnName =>
-      StructField(name, ArrayType(arrayElementType), nullable, metadata)
-    case StructField(name, struct: StructType, nullable, metadata) =>
-      StructField(name, revertStringToArray(struct, columnName, arrayElementType), nullable, metadata)
-    case other =>
-      other
-  }
-  StructType(newFields)
+object ConvertStringToArrayType extends App {
+  // Initialize SparkSession
+  val spark = SparkSession.builder
+    .appName("Convert String to ArrayType")
+    .master("local[*]")
+    .getOrCreate()
+
+  import spark.implicits._
+
+  // Example DataFrame with a string column containing JSON-like data
+  val data = Seq(
+    ("Smith", """[{"label":"EYEcolor","value":"blue"},{"label":"gifterd","value":null}]"""),
+    ("Johnson", """[{"label":"EYEcolor","value":"green"},{"label":"gifterd","value":"yes"}]""")
+  ).toDF("lastname", "demo")
+
+  // Print the original schema
+  println("Original Schema:")
+  data.printSchema()
+
+  // Define the target schema for the JSON string
+  val targetSchema = ArrayType(StructType(Seq(
+    StructField("label", StringType, nullable = true),
+    StructField("value", StringType, nullable = true)
+  )))
+
+  // Apply schema transformation to parse the string column into ArrayType of StructType
+  val updatedDF = data.withColumn("demo_parsed", from_json($"demo", targetSchema))
+
+  // Print the updated schema
+  println("\nUpdated Schema:")
+  updatedDF.printSchema()
+
+  // Show the transformed DataFrame
+  updatedDF.show(false)
 }
-
-// Example usage:
-val originalSchema = StructType(Seq(
-  StructField("lastname", StringType, nullable = true),
-  StructField("demo", StringType, nullable = true),
-  StructField("details", StructType(Seq(
-    StructField("age", IntegerType, nullable = true),
-    StructField("address", StringType, nullable = true)
-  )), nullable = true)
-))
-
-// Convert "demo" column from StringType to ArrayType of StringType
-val updatedSchema = revertStringToArray(originalSchema, "demo", StringType)
-
-// Print the updated schema
-println("Updated Schema:")
-updatedSchema.printTreeString()
