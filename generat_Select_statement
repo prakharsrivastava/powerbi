@@ -1,34 +1,41 @@
+import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object ConvertArrayType extends App {
-  // Define the original schema
-  val originalSchema = StructType(Seq(
-    StructField("lastname", StringType),
-    StructField("demo", ArrayType(StructType(Seq(
-      StructField("label", StringType),
-      StructField("value", StringType)
-    ))))
-  ))
+object ConvertStringToArrayType extends App {
+  // Initialize SparkSession
+  val spark = SparkSession.builder
+    .appName("Convert StringType to ArrayType")
+    .master("local[*]")
+    .getOrCreate()
 
-  // Function to convert ArrayType to StringType in the schema without using schema.map
-  def convertSchema(schema: StructType): StructType = {
-    val newFields = schema.fields.map {
-      case StructField(name, arrayType: ArrayType, nullable, metadata) =>
-        StructField(name, StringType, nullable, metadata)
-      case StructField(name, structType: StructType, nullable, metadata) =>
-        StructField(name, convertSchema(structType), nullable, metadata)
-      case other => other
+  import spark.implicits._
+
+  // Example DataFrame with a StringType column containing CSV format
+  val data = Seq(
+    ("Smith", "color:black, gift:no"),
+    ("Johnson", "color:white, gift:yes")
+  ).toDF("lastname", "demo")
+
+  // Define the schema for the array elements
+  val targetArraySchema = new StructType()
+    .add("key", StringType)
+    .add("value", StringType)
+
+  // Function to parse CSV string and convert it to array of structs
+  val parseCsvToArray = udf((csv: String) => {
+    csv.split(", ").map { pair =>
+      val Array(key, value) = pair.split(":")
+      Row(key, value)
     }
-    StructType(newFields)
-  }
+  }, ArrayType(targetArraySchema))
 
-  // Convert the schema
-  val newSchema = convertSchema(originalSchema)
+  // Apply the UDF to convert the StringType column to ArrayType
+  val newDf = data.withColumn("demo", parseCsvToArray(col("demo")))
 
-  // Print the original and new schema
-  println("Original Schema:")
-  println(originalSchema.prettyJson)
+  // Show the transformed DataFrame
+  newDf.show(false)
 
-  println("New Schema:")
-  println(newSchema.prettyJson)
+  // Print the schema of the new DataFrame
+  newDf.printSchema()
 }
