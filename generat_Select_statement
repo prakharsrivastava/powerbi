@@ -2,10 +2,10 @@ import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object ConvertJsonStringToColumns extends App {
+object ConvertStringToArrayType extends App {
   // Initialize SparkSession
   val spark = SparkSession.builder
-    .appName("Convert Json String to Columns")
+    .appName("Convert String to ArrayType")
     .master("local[*]")
     .getOrCreate()
 
@@ -17,26 +17,27 @@ object ConvertJsonStringToColumns extends App {
     ("Johnson", """[{"label":"EYEcolor","value":"green"},{"label":"gifterd","value":"yes"}]""")
   ).toDF("lastname", "demo")
 
-  // Define the schema for the JSON string
-  val jsonSchema = ArrayType(StructType(Seq(
+  // Define the target schema for the JSON string
+  val targetSchema = ArrayType(StructType(Seq(
     StructField("label", StringType, true),
     StructField("value", StringType, true)
   )))
 
-  // Extract the JSON-like strings into new columns
-  val extractedDF = data.withColumn("demo_extracted", from_json($"demo", jsonSchema))
+  // Define a UDF to parse the JSON-like string into an ArrayType of StructType
+  val parseJsonUDF = udf((jsonString: String) => {
+    val jsonArray = jsonString.replaceAll("\\s+", "").stripPrefix("[").stripSuffix("]").split("\\},\\{")
+    val rows = jsonArray.map { item =>
+      val cleanedItem = item.replaceAll("[{}\"]", "")
+      val Array(label, value) = cleanedItem.split(",")
+      Row(label.split(":")(1), value.split(":")(1))
+    }
+    rows
+  }, targetSchema)
 
-  // Explode the array into individual rows
-  val explodedDF = extractedDF.withColumn("demo", explode($"demo_extracted"))
-
-  // Pivot the exploded rows to columns
-  val pivotedDF = explodedDF
-    .select($"lastname", $"demo.label", $"demo.value")
-    .groupBy("lastname")
-    .pivot("label")
-    .agg(first("value"))
+  // Apply the UDF to convert the StringType column to ArrayType
+  val convertedDF = data.withColumn("demo_array", parseJsonUDF($"demo"))
 
   // Show the transformed DataFrame
-  pivotedDF.show(false)
-  pivotedDF.printSchema()
+  convertedDF.show(false)
+  convertedDF.printSchema()
 }
