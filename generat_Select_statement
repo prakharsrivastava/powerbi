@@ -2,29 +2,45 @@ import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 
-// Sample data
-val data = Seq(
-  ("suszan kapoor", "[{\"label\": \"color\", \"value\": \"black\"}, {\"label\": \"gift\", \"value\": \"no\"}]")
-)
+// Create SparkSession
+val spark = SparkSession.builder()
+  .appName("Parse JSON Array in String")
+  .master("local[*]")
+  .getOrCreate()
 
 import spark.implicits._
 
-// Create DataFrame from sample data
-val df = data.toDF("lastname", "demo")
+// Sample data
+val data = Seq(
+  ("suszan kapoor", Seq(Row("color", "black"), Row("gift", "no")))
+)
 
-// Define UDF to extract value based on label
-val extractValueUDF = udf((jsonString: String, label: String) => {
-  val jsonArr = jsonString.replaceAll("\\\\", "").stripPrefix("[").stripSuffix("]")
-  val items = jsonArr.split("\\},\\s*\\{").map(_.replaceAll("[\\{\\}]", ""))
-  val filtered = items.filter(_.contains(s""""label":"$label""""))
-  if (filtered.isEmpty) null else {
-    val value = filtered.head.split(",\\s*").find(_.contains("\"value\":")).map(_.split(":")(1).replaceAll("\"", "").trim)
-    value.getOrElse(null)
-  }
-})
+// Define schema
+val demoSchema = ArrayType(StructType(Seq(
+  StructField("label", StringType, true),
+  StructField("value", StringType, true)
+)))
 
-// Apply UDF to extract "color" value
-val transformedDF = df.withColumn("color", extractValueUDF($"demo", lit("color")))
+val schema = StructType(Seq(
+  StructField("lastname", StringType, true),
+  StructField("demo", demoSchema, true)
+))
+
+// Create DataFrame
+val df = spark.createDataFrame(
+  spark.sparkContext.parallelize(data.map { case (lastname, demo) => Row(lastname, demo) }),
+  schema
+)
+
+// Explode the JSON array into separate rows
+val explodedDF = df.withColumn("exploded", explode($"demo"))
+
+// Pivot the DataFrame to get key-value pairs as separate columns
+val pivotedDF = explodedDF
+  .select($"lastname", $"exploded.*")
+  .groupBy($"lastname")
+  .pivot($"label")
+  .agg(first($"value"))
 
 // Display the transformed DataFrame
-transformedDF.show(false)
+pivotedDF.show(false)
