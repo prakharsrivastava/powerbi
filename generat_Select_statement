@@ -1,10 +1,10 @@
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 // Create SparkSession
 val spark = SparkSession.builder()
-  .appName("Parse JSON Array in String")
+  .appName("Convert Array to JSON")
   .master("local[*]")
   .getOrCreate()
 
@@ -12,28 +12,24 @@ import spark.implicits._
 
 // Sample data
 val data = Seq(
-  ("suszan kapoor", """[{"label":"color","value":"black"},{"label":"gift","value":"no"}]"""),
-  ("john doe", """[{"label":"color","value":"blue"},{"label":"gift","value":"yes"}]""")
+  ("suszan kapoor", Seq(("color", "black"), ("gift", "no")))
 ).toDF("lastname", "demo")
 
-// Define schema for the JSON data
+// Define the schema for the demo column
 val demoSchema = ArrayType(StructType(Seq(
   StructField("label", StringType, true),
   StructField("value", StringType, true)
 )))
 
-// Convert JSON string to array of structs
-val parsedDF = data.withColumn("demo", from_json($"demo", demoSchema))
+// Define UDF to convert Seq[(String, String)] to JSON array string
+val convertToJSONString = udf((demo: Seq[Row]) => {
+  demo.map { case Row(label: String, value: String) =>
+    s"""{"label":"$label","value":"$value"}"""
+  }.mkString("[", ",", "]")
+}, StringType)
 
-// Explode the array into separate rows
-val explodedDF = parsedDF.withColumn("exploded", explode($"demo"))
+// Apply the UDF to transform the demo column
+val transformedDF = data.withColumn("demo", convertToJSONString($"demo"))
 
-// Pivot the DataFrame to get key-value pairs as separate columns
-val pivotedDF = explodedDF
-  .select($"lastname", $"exploded.label", $"exploded.value")
-  .groupBy($"lastname")
-  .pivot($"label")
-  .agg(first($"value"))
-
-// Display the transformed DataFrame
-pivotedDF.show(false)
+// Show the transformed DataFrame
+transformedDF.show(false)
