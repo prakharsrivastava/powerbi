@@ -2,32 +2,37 @@ import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 
-// Sample data
-val data = Seq("""{"label": "color", "value": "black"}""", """{"label": "gift", "value": "no"}""")
+// Sample data as JSON strings
+val jsonData = """[{"label": "color", "value": "black"}, {"label": "gift", "value": "no"}]"""
 
 // Create SparkSession
 val spark = SparkSession.builder()
-  .appName("Parse JSON to Columns")
+  .appName("Parse JSON Array to Columns")
   .master("local[*]")
   .getOrCreate()
 
 import spark.implicits._
 
-// Create DataFrame from sample data
-val df = data.toDF("json_data")
-
 // Define schema for the JSON structure
-val schema = StructType(Seq(
-  StructField("label", StringType, nullable = false),
-  StructField("value", StringType, nullable = false)
-))
+val schema = ArrayType(
+  StructType(Seq(
+    StructField("label", StringType, nullable = false),
+    StructField("value", StringType, nullable = false)
+  ))
+)
 
-// Parse JSON and extract fields into separate columns
-val parsedDF = df.select(
-  from_json($"json_data", schema).alias("parsed_data")
-).select(
-  $"parsed_data.label".alias("col"),
-  $"parsed_data.value".alias("value")
+// Create DataFrame from JSON string
+val df = spark.read
+  .option("multiline", "true")
+  .json(Seq(jsonData).toDS)
+
+// Explode the array of structs into separate rows
+val explodedDF = df.withColumn("exploded", explode($"value"))
+
+// Select and rename columns
+val parsedDF = explodedDF.select(
+  $"exploded.label".alias("col"),
+  $"exploded.value".alias("value")
 )
 
 // Display the parsed DataFrame
