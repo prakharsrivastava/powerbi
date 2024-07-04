@@ -1,48 +1,19 @@
-import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
 
-object DemoColumnTransformation extends App {
-  // Initialize SparkSession
-  val spark = SparkSession.builder
-    .appName("Demo Column Transformation")
-    .master("local[*]")
-    .getOrCreate()
-
-  import spark.implicits._
-
-  // Example data
+object ConvertToJsonString extends App {
+  // Sample data with key-value pairs
   val data = Seq(
-    ("suzan kapoor", "[{\"color\":\"black\"}, {\"gift\":\"no\"}]")
+    ("color", "black"),
+    ("gift", "no")
   )
 
-  // Define schema
-  val schema = StructType(Seq(
-    StructField("lastname", StringType, nullable = false),
-    StructField("demo", StringType, nullable = false)
-  ))
+  // Convert each pair into a JSON object string
+  val jsonStrings = data.map { case (key, value) =>
+    s"""{"label":"$key", "value":"$value"}"""
+  }
 
-  // Create DataFrame
-  val df = spark.createDataFrame(data).toDF("lastname", "demo")
+  // Join the JSON strings with commas and enclose them in square brackets to form an array
+  val jsonArrayString = "[" + jsonStrings.mkString(", ") + "]"
 
-  // Parse JSON string into separate columns
-  val parsedDF = df.withColumn("demo_parsed", from_json($"demo", ArrayType(
-    StructType(Seq(
-      StructField("label", StringType, nullable = false),
-      StructField("value", StringType, nullable = false)
-    ))
-  ))).select($"lastname", explode($"demo_parsed").as("demo_exploded"))
-
-  // Select key and value columns
-  val explodedDF = parsedDF.select(
-    $"lastname",
-    $"demo_exploded.label".as("key"),
-    $"demo_exploded.value".as("value")
-  )
-
-  // Show the resulting DataFrame
-  explodedDF.show(false)
-
-  // Stop SparkSession
-  spark.stop()
+  println(jsonArrayString)
 }
