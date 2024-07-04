@@ -10,26 +10,46 @@ val spark = SparkSession.builder()
 
 import spark.implicits._
 
-// Sample data
-val data = Seq(
-  ("suszan kapoor", Seq(("color", "black"), ("gift", "no")))
-).toDF("lastname", "demo")
-
 // Define the schema for the demo column
 val demoSchema = ArrayType(StructType(Seq(
   StructField("label", StringType, true),
   StructField("value", StringType, true)
 )))
 
-// Define UDF to convert Seq[(String, String)] to JSON array string
-val convertToJSONString = udf((demo: Seq[Row]) => {
-  demo.map { case Row(label: String, value: String) =>
+// Sample data
+val data = Seq(
+  ("suszan kapoor", Seq(Row("color", "black"), Row("gift", "no")))
+)
+
+// Create DataFrame
+val df = spark.createDataFrame(
+  data.map { case (lastname, demo) => Row(lastname, demo) },
+  StructType(Seq(
+    StructField("lastname", StringType, false),
+    StructField("demo", demoSchema, false)
+  ))
+)
+
+// Define untyped UDF to convert Array[Row] to JSON string
+val arrayToJson = udf((arr: Seq[Row]) => {
+  arr.map(row => {
+    val label = row.getString(0)
+    val value = row.getString(1)
     s"""{"label":"$label","value":"$value"}"""
-  }.mkString("[", ",", "]")
-}, StringType)
+  }).mkString("[", ",", "]")
+})
 
-// Apply the UDF to transform the demo column
-val transformedDF = data.withColumn("demo", convertToJSONString($"demo"))
+// Apply the UDF to transform the demo column to JSON string
+val jsonDf = df.withColumn("demo_json", arrayToJson($"demo"))
 
-// Show the transformed DataFrame
-transformedDF.show(false)
+// Parse the JSON string back to an array of structs
+val parsedDf = jsonDf.withColumn("demo", from_json($"demo_json", demoSchema)).drop("demo_json")
+
+// Explode the array of structs into separate rows
+val explodedDf = parsedDf.withColumn("demo", explode($"demo"))
+
+// Pivot the exploded rows into columns
+val pivotedDf = explodedDf.select($"lastname", $"demo.*").groupBy($"lastname").pivot("label").agg(first("value"))
+
+// Show the final DataFrame
+pivotedDf.show(false)
