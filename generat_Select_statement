@@ -2,65 +2,45 @@ import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object ReadAndParseDemoColumn extends App {
+object ExportDataFrameToCSV extends App {
   // Initialize SparkSession
   val spark = SparkSession.builder
-    .appName("Read and Parse Demo Column")
+    .appName("Export DataFrame to CSV")
     .master("local[*]")
     .getOrCreate()
 
   import spark.implicits._
 
-  // Example CSV data (assuming data is correctly formatted in CSV)
-  val csvData =
-    """
-      |lastname,demo
-      |suzan kapoor,"{""color"":""black"", ""gift"":""no""}"
-      |john doe,"{""color"":""blue"", ""gift"":""yes""}"
-      |""".stripMargin
+  // Example data
+  val data = Seq(
+    ("suzan kapoor", Seq(("color", "black"), ("gift", "no"))),
+    ("john doe", Seq(("color", "blue"), ("gift", "yes")))
+  )
 
-  // Define the schema for the DataFrame
+  // Define the schema
   val schema = StructType(Seq(
     StructField("lastname", StringType, true),
-    StructField("demo", StringType, true)
+    StructField("state_demo", ArrayType(StructType(Seq(
+      StructField("label", StringType, true),
+      StructField("value", StringType, true)
+    ))), true)
   ))
 
-  // Read CSV data with defined schema
-  val df = spark.read
+  // Create DataFrame
+  val df = spark.createDataFrame(data).toDF("lastname", "state_demo")
+
+  // Flatten the state_demo array column into a JSON string
+  val flattenedDF = df.withColumn("state_demo_json", to_json($"state_demo"))
+    .drop("state_demo")
+
+  // Define the path to save CSV file
+  val csvPath = "/path/to/save/file.csv"
+
+  // Write DataFrame to CSV
+  flattenedDF.coalesce(1)  // coalesce to 1 partition for single output file
+    .write
     .option("header", "true")
-    .schema(schema)
-    .csv(spark.sparkContext.parallelize(csvData.split("\n").toSeq).toDS())
-
-  // Function to parse the demo column into StructType
-  val parseDemoColumn = udf((demo: String) => {
-    val keyValuePairs = demo.stripPrefix("{").stripSuffix("}")
-      .split(", ")
-      .map { pair =>
-        val Array(key, value) = pair.split(":")
-        (key.stripPrefix("\"").stripSuffix("\""), value.stripPrefix("\"").stripSuffix("\""))
-      }
-      .toSeq
-    keyValuePairs.map(pair => Row(pair._1, pair._2))
-  })
-
-  // Define the target schema for the parsed data
-  val targetSchema = StructType(Seq(
-    StructField("label", StringType, true),
-    StructField("value", StringType, true)
-  ))
-
-  // Apply UDF to parse demo column and convert to DataFrame
-  val parsedDF = df.withColumn("parsed_demo", explode(parseDemoColumn($"demo")))
-    .select($"lastname", struct($"parsed_demo.*").as("demo"))
-    .groupBy("lastname")
-    .agg(collect_list($"demo").as("demo"))
-    .select($"lastname", $"demo".cast(ArrayType(targetSchema)))
-
-  // Show DataFrame
-  parsedDF.show(false)
-
-  // Print DataFrame schema
-  parsedDF.printSchema()
+    .csv(csvPath)
 
   // Stop SparkSession
   spark.stop()
