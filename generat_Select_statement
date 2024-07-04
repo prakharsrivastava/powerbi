@@ -2,10 +2,10 @@ import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object ExportDataFrameToCSV extends App {
+object DemoColumnTransformation extends App {
   // Initialize SparkSession
   val spark = SparkSession.builder
-    .appName("Export DataFrame to CSV")
+    .appName("Demo Column Transformation")
     .master("local[*]")
     .getOrCreate()
 
@@ -13,34 +13,35 @@ object ExportDataFrameToCSV extends App {
 
   // Example data
   val data = Seq(
-    ("suzan kapoor", Seq(("color", "black"), ("gift", "no"))),
-    ("john doe", Seq(("color", "blue"), ("gift", "yes")))
+    ("suzan kapoor", "[{\"color\":\"black\"}, {\"gift\":\"no\"}]")
   )
 
-  // Define the schema
+  // Define schema
   val schema = StructType(Seq(
-    StructField("lastname", StringType, true),
-    StructField("state_demo", ArrayType(StructType(Seq(
-      StructField("label", StringType, true),
-      StructField("value", StringType, true)
-    ))), true)
+    StructField("lastname", StringType, nullable = false),
+    StructField("demo", StringType, nullable = false)
   ))
 
   // Create DataFrame
-  val df = spark.createDataFrame(data).toDF("lastname", "state_demo")
+  val df = spark.createDataFrame(data).toDF("lastname", "demo")
 
-  // Flatten the state_demo array column into a JSON string
-  val flattenedDF = df.withColumn("state_demo_json", to_json($"state_demo"))
-    .drop("state_demo")
+  // Parse JSON string into separate columns
+  val parsedDF = df.withColumn("demo_parsed", from_json($"demo", ArrayType(
+    StructType(Seq(
+      StructField("label", StringType, nullable = false),
+      StructField("value", StringType, nullable = false)
+    ))
+  ))).select($"lastname", explode($"demo_parsed").as("demo_exploded"))
 
-  // Define the path to save CSV file
-  val csvPath = "/path/to/save/file.csv"
+  // Select key and value columns
+  val explodedDF = parsedDF.select(
+    $"lastname",
+    $"demo_exploded.label".as("key"),
+    $"demo_exploded.value".as("value")
+  )
 
-  // Write DataFrame to CSV
-  flattenedDF.coalesce(1)  // coalesce to 1 partition for single output file
-    .write
-    .option("header", "true")
-    .csv(csvPath)
+  // Show the resulting DataFrame
+  explodedDF.show(false)
 
   // Stop SparkSession
   spark.stop()
