@@ -1,38 +1,53 @@
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object ConvertStringToArrayType extends App {
+object CsvToStructuredDataFrame extends App {
   // Initialize SparkSession
   val spark = SparkSession.builder
-    .appName("Convert String to ArrayType")
+    .appName("CSV to Structured DataFrame")
     .master("local[*]")
     .getOrCreate()
 
   import spark.implicits._
 
-  // Example DataFrame with a string column containing JSON-like data
-  val data = Seq(
-    ("Smith", """[{"label":"EYEcolor","value":"blue"},{"label":"gifterd","value":null}]"""),
-    ("Johnson", """[{"label":"EYEcolor","value":"green"},{"label":"gifterd","value":"yes"}]""")
-  ).toDF("lastname", "demo")
+  // Example CSV data
+  val csvData = Seq(
+    "suszan kapoor,\"{\"color\",\"black\"},{\"gift\",\"no\"}\""
+  ).toDF("data")
 
-  // Print the original schema
-  println("Original Schema:")
-  data.printSchema()
+  // Split CSV data into separate columns
+  val data = csvData.selectExpr(
+    "split(data, ',\"')[0] as lastname",
+    "concat('[', split(data, ',\"')[1], ']') as demo"
+  )
 
-  // Define the target schema for the JSON string
-  val targetSchema = ArrayType(StructType(Seq(
-    StructField("label", StringType, nullable = true),
-    StructField("value", StringType, nullable = true)
+  // Define the target schema
+  val targetArraySchema = ArrayType(StructType(Seq(
+    StructField("label", StringType, true),
+    StructField("value", StringType, true)
   )))
 
-  // Apply schema transformation to parse the string column into ArrayType of StructType
-  val updatedDF = data.withColumn("demo_parsed", from_json($"demo", targetSchema))
+  // Define a UDF to convert the CSV-like string to array of structs
+  val parseCsvToArray = udf((csv: String) => {
+    csv.stripPrefix("[{").stripSuffix("}]").split("},\\s*\\{").map { pair =>
+      val Array(key, value) = pair.split("\",\"")
+      Row(key.trim.stripPrefix("\"").stripSuffix("\""), value.trim.stripPrefix("\"").stripSuffix("\""))
+    }
+  }, targetArraySchema)
 
-  // Print the updated schema
-  println("\nUpdated Schema:")
-  updatedDF.printSchema()
+  // Convert demo column from CSV-like string to Array of Structs
+  val dataWithArray = data.withColumn("demo", parseCsvToArray($"demo"))
 
-  // Show the transformed DataFrame
-  updatedDF.show(false)
+  // Explode the array of structs into individual rows
+  val explodedData = dataWithArray.withColumn("demo", explode($"demo"))
+
+  // Pivot the DataFrame to get a wide format
+  val pivotedData = explodedData
+    .groupBy("lastname")
+    .pivot("demo.label")
+    .agg(first("demo.value"))
+
+  // Show the result
+  pivotedData.show(false)
 }
