@@ -2,52 +2,66 @@ import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object CsvToStructuredDataFrame extends App {
+object ReadAndParseDemoColumn extends App {
   // Initialize SparkSession
   val spark = SparkSession.builder
-    .appName("CSV to Structured DataFrame")
+    .appName("Read and Parse Demo Column")
     .master("local[*]")
     .getOrCreate()
 
   import spark.implicits._
 
-  // Example CSV data
-  val csvData = Seq(
-    "suszan kapoor,\"{\"color\",\"black\"},{\"gift\",\"no\"}\""
-  ).toDF("data")
+  // Example CSV data (assuming data is correctly formatted in CSV)
+  val csvData =
+    """
+      |lastname,demo
+      |suzan kapoor,"{""color"":""black"", ""gift"":""no""}"
+      |john doe,"{""color"":""blue"", ""gift"":""yes""}"
+      |""".stripMargin
 
-  // Split CSV data into separate columns
-  val data = csvData.selectExpr(
-    "split(data, ',\"')[0] as lastname",
-    "concat('[', split(data, ',\"')[1], ']') as demo"
-  )
+  // Define the schema for the DataFrame
+  val schema = StructType(Seq(
+    StructField("lastname", StringType, true),
+    StructField("demo", StringType, true)
+  ))
 
-  // Define the target schema
-  val targetArraySchema = ArrayType(StructType(Seq(
+  // Read CSV data with defined schema
+  val df = spark.read
+    .option("header", "true")
+    .schema(schema)
+    .csv(spark.sparkContext.parallelize(csvData.split("\n").toSeq).toDS())
+
+  // Function to parse the demo column into StructType
+  val parseDemoColumn = udf((demo: String) => {
+    val keyValuePairs = demo.stripPrefix("{").stripSuffix("}")
+      .split(", ")
+      .map { pair =>
+        val Array(key, value) = pair.split(":")
+        (key.stripPrefix("\"").stripSuffix("\""), value.stripPrefix("\"").stripSuffix("\""))
+      }
+      .toSeq
+    keyValuePairs.map(pair => Row(pair._1, pair._2))
+  })
+
+  // Define the target schema for the parsed data
+  val targetSchema = StructType(Seq(
     StructField("label", StringType, true),
     StructField("value", StringType, true)
-  )))
+  ))
 
-  // Define a UDF to convert the CSV-like string to array of structs
-  val parseCsvToArray = udf((csv: String) => {
-    csv.stripPrefix("[{").stripSuffix("}]").split("},\\s*\\{").map { pair =>
-      val Array(key, value) = pair.split("\",\"")
-      Row(key.trim.stripPrefix("\"").stripSuffix("\""), value.trim.stripPrefix("\"").stripSuffix("\""))
-    }
-  }, targetArraySchema)
-
-  // Convert demo column from CSV-like string to Array of Structs
-  val dataWithArray = data.withColumn("demo", parseCsvToArray($"demo"))
-
-  // Explode the array of structs into individual rows
-  val explodedData = dataWithArray.withColumn("demo", explode($"demo"))
-
-  // Pivot the DataFrame to get a wide format
-  val pivotedData = explodedData
+  // Apply UDF to parse demo column and convert to DataFrame
+  val parsedDF = df.withColumn("parsed_demo", explode(parseDemoColumn($"demo")))
+    .select($"lastname", struct($"parsed_demo.*").as("demo"))
     .groupBy("lastname")
-    .pivot("demo.label")
-    .agg(first("demo.value"))
+    .agg(collect_list($"demo").as("demo"))
+    .select($"lastname", $"demo".cast(ArrayType(targetSchema)))
 
-  // Show the result
-  pivotedData.show(false)
+  // Show DataFrame
+  parsedDF.show(false)
+
+  // Print DataFrame schema
+  parsedDF.printSchema()
+
+  // Stop SparkSession
+  spark.stop()
 }
