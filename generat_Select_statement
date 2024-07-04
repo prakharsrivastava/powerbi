@@ -2,18 +2,23 @@ import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 
-// Sample data as JSON strings
-val jsonData = """[{"label": "color", "value": "black"}, {"label": "gift", "value": "no"}]"""
+// Sample data
+val data = Seq(
+  ("suszan kapoor", "[{\"label\": \"color\", \"value\": \"black\"}, {\"label\": \"gift\", \"value\": \"no\"}]")
+)
 
 // Create SparkSession
 val spark = SparkSession.builder()
-  .appName("Parse JSON Array to Columns")
+  .appName("Parse JSON Array in String")
   .master("local[*]")
   .getOrCreate()
 
 import spark.implicits._
 
-// Define schema for the JSON structure
+// Create DataFrame from sample data
+val df = data.toDF("lastname", "demo")
+
+// Define schema for the JSON structure within the array
 val schema = ArrayType(
   StructType(Seq(
     StructField("label", StringType, nullable = false),
@@ -21,19 +26,22 @@ val schema = ArrayType(
   ))
 )
 
-// Create DataFrame from JSON string
-val df = spark.read
-  .option("multiline", "true")
-  .json(Seq(jsonData).toDS)
+// Define UDF to parse JSON array string into array of structs
+val parseJsonArray = udf((jsonString: String) => {
+  val jsonArr = jsonString.replaceAll("\\\\", "").stripPrefix("[").stripSuffix("]")
+  val cleanedJson = jsonArr.split("\\},\\s*\\{").map(_.replaceAll("[\\{\\}]", ""))
+  cleanedJson.map { item =>
+    val Array(label, value) = item.split(",\\s*").map(_.split(":")(1).replaceAll("\"", "").trim)
+    (label, value)
+  }
+})
 
-// Explode the array of structs into separate rows
-val explodedDF = df.withColumn("exploded", explode($"value"))
-
-// Select and rename columns
-val parsedDF = explodedDF.select(
-  $"exploded.label".alias("col"),
-  $"exploded.value".alias("value")
-)
+// Parse JSON array string into array of structs
+val parsedDF = df.withColumn("parsed", parseJsonArray($"demo"))
+                 .select(
+                   $"lastname",
+                   explode($"parsed").as(Seq("col", "value"))
+                 )
 
 // Display the parsed DataFrame
 parsedDF.show(false)
