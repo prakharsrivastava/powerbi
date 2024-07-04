@@ -1,42 +1,46 @@
-import org.apache.spark.sql.{SparkSession, DataFrame}
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
 
 // Sample data
 val data = Seq(
-  Seq(("color", "black"), ("gift", "no")),
-  Seq(("color", "blue"), ("gift", "yes"))
+  ("color", "black"),
+  ("gift", "no")
 )
+
+// Define schema for the DataFrame
+val schema = StructType(Seq(
+  StructField("label", StringType, nullable = false),
+  StructField("value", StringType, nullable = false)
+))
 
 // Create SparkSession
 val spark = SparkSession.builder()
-  .appName("Convert Array of Structs to JSON Array")
+  .appName("Convert Array of Tuples to JSON for demo column")
   .master("local[*]")
   .getOrCreate()
 
 import spark.implicits._
 
-// Create DataFrame with schema
-val schema = StructType(Seq(
-  StructField("demo", ArrayType(StructType(Seq(
-    StructField("label", StringType, nullable = false),
-    StructField("value", StringType, nullable = false)
-  ))), nullable = false)
-))
+// Sample DataFrame
+val df = Seq(
+  ("some_value", "another_value", Seq(("color", "black"), ("gift", "no"))),
+  ("some_value", "another_value", Seq(("color", "blue"), ("gift", "yes")))
+).toDF("col1", "col2", "demo")
 
-// Create DataFrame from sample data
-val df = spark.createDataFrame(data.map(Row(_)), schema)
+// Define a function to convert array of tuples to JSON
+val arrayToJsonUDF = udf((array: Seq[Row]) => {
+  array.map { case Row(label: String, value: String) =>
+    s"""{"label":"$label","value":"$value"}"""
+  }
+})
 
-// Display the original DataFrame
+// Apply UDF to convert demo column to JSON format
+val jsonDF = df.withColumn("demo_json", arrayToJsonUDF($"demo"))
+
+// Display the original and transformed DataFrames
 println("Original DataFrame:")
 df.show(false)
 
-// Convert demo array column to JSON array format
-val jsonDF = df.withColumn("demo_json", to_json($"demo"))
-
-// Display the transformed DataFrame
 println("Transformed DataFrame:")
 jsonDF.show(false)
-
-// Stop SparkSession
-spark.stop()
