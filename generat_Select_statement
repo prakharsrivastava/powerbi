@@ -7,41 +7,24 @@ val data = Seq(
   ("suszan kapoor", "[{\"label\": \"color\", \"value\": \"black\"}, {\"label\": \"gift\", \"value\": \"no\"}]")
 )
 
-// Create SparkSession
-val spark = SparkSession.builder()
-  .appName("Parse JSON Array in String")
-  .master("local[*]")
-  .getOrCreate()
-
 import spark.implicits._
 
 // Create DataFrame from sample data
 val df = data.toDF("lastname", "demo")
 
-// Define schema for the JSON structure within the array
-val schema = ArrayType(
-  StructType(Seq(
-    StructField("label", StringType, nullable = false),
-    StructField("value", StringType, nullable = false)
-  ))
-)
-
-// Define UDF to parse JSON array string into array of structs
-val parseJsonArray = udf((jsonString: String) => {
+// Define UDF to extract value based on label
+val extractValueUDF = udf((jsonString: String, label: String) => {
   val jsonArr = jsonString.replaceAll("\\\\", "").stripPrefix("[").stripSuffix("]")
-  val cleanedJson = jsonArr.split("\\},\\s*\\{").map(_.replaceAll("[\\{\\}]", ""))
-  cleanedJson.map { item =>
-    val Array(label, value) = item.split(",\\s*").map(_.split(":")(1).replaceAll("\"", "").trim)
-    (label, value)
+  val items = jsonArr.split("\\},\\s*\\{").map(_.replaceAll("[\\{\\}]", ""))
+  val filtered = items.filter(_.contains(s""""label":"$label""""))
+  if (filtered.isEmpty) null else {
+    val value = filtered.head.split(",\\s*").find(_.contains("\"value\":")).map(_.split(":")(1).replaceAll("\"", "").trim)
+    value.getOrElse(null)
   }
 })
 
-// Parse JSON array string into array of structs
-val parsedDF = df.withColumn("parsed", parseJsonArray($"demo"))
-                 .select(
-                   $"lastname",
-                   explode($"parsed").as(Seq("col", "value"))
-                 )
+// Apply UDF to extract "color" value
+val transformedDF = df.withColumn("color", extractValueUDF($"demo", lit("color")))
 
-// Display the parsed DataFrame
-parsedDF.show(false)
+// Display the transformed DataFrame
+transformedDF.show(false)
