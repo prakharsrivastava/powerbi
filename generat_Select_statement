@@ -1,55 +1,32 @@
-import org.apache.spark.sql.{SparkSession, Row}
+import org.apache.spark.sql.{SparkSession, Row, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-// Create SparkSession
-val spark = SparkSession.builder()
-  .appName("Convert Array to JSON")
-  .master("local[*]")
-  .getOrCreate()
-
+val spark = SparkSession.builder.appName("example").getOrCreate()
 import spark.implicits._
 
-// Define the schema for the demo column
-val demoSchema = ArrayType(StructType(Seq(
+// Sample data simulating reading from a CSV
+val data = Seq(
+  ("suszan kapoor", """[{"label":"color","value":"black"}, {"label":"gift","value":"no"}]""")
+).toDF("lastname", "demo")
+
+// Define the schema for the JSON data
+val jsonSchema = ArrayType(StructType(Seq(
   StructField("label", StringType, true),
   StructField("value", StringType, true)
 )))
 
-// Sample data
-val data = Seq(
-  ("suszan kapoor", Seq(Row("color", "black"), Row("gift", "no")))
-)
+// Parse the JSON string into an array of structs
+val parsedDF = data.withColumn("demo", from_json($"demo", jsonSchema))
 
-// Create DataFrame
-val df = spark.createDataFrame(
-  data.map { case (lastname, demo) => Row(lastname, demo) },
-  StructType(Seq(
-    StructField("lastname", StringType, false),
-    StructField("demo", demoSchema, false)
-  ))
-)
+// Extract key-value pairs as a sequence of tuples
+val keyValueSeqDF = parsedDF.withColumn("demo", expr("transform(demo, x -> (x.label, x.value))"))
 
-// Define untyped UDF to convert Array[Row] to JSON string
-val arrayToJson = udf((arr: Seq[Row]) => {
-  arr.map(row => {
-    val label = row.getString(0)
-    val value = row.getString(1)
-    s"""{"label":"$label","value":"$value"}"""
-  }).mkString("[", ",", "]")
-})
+// Show the resulting DataFrame
+keyValueSeqDF.show(false)
 
-// Apply the UDF to transform the demo column to JSON string
-val jsonDf = df.withColumn("demo_json", arrayToJson($"demo"))
+// Collect the data as a sequence of tuples
+val result = keyValueSeqDF.select("demo").as[Seq[(String, String)]].collect()
 
-// Parse the JSON string back to an array of structs
-val parsedDf = jsonDf.withColumn("demo", from_json($"demo_json", demoSchema)).drop("demo_json")
-
-// Explode the array of structs into separate rows
-val explodedDf = parsedDf.withColumn("demo", explode($"demo"))
-
-// Pivot the exploded rows into columns
-val pivotedDf = explodedDf.select($"lastname", $"demo.*").groupBy($"lastname").pivot("label").agg(first("value"))
-
-// Show the final DataFrame
-pivotedDf.show(false)
+// Print the result
+result.foreach(println)
