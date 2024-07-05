@@ -1,4 +1,4 @@
-import org.apache.spark.sql.{SparkSession, Row, DataFrame}
+import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -12,9 +12,14 @@ val data = Seq(
 
 // Define a UDF to parse the string and convert it into a sequence of tuples
 val parseStringToSeq = udf((str: String) => {
-  val regex = "\\{\"(.*?)\",\"(.*?)\"\\}".r
-  regex.findAllIn(str).matchData.map { m =>
-    (m.group(1), m.group(2))
+  // Remove leading and trailing brackets
+  val cleanedStr = str.stripPrefix("[").stripSuffix("]")
+  // Split the string into individual key-value pairs
+  val pairs = cleanedStr.split("\\}, \\{")
+  pairs.map { pair =>
+    // Remove curly braces and split by comma to get key and value
+    val keyValue = pair.replaceAll("[\\{\\}\"]", "").split(",")
+    (keyValue(0).trim, keyValue(1).trim)
   }.toSeq
 })
 
