@@ -7,26 +7,23 @@ import spark.implicits._
 
 // Sample data simulating reading from a CSV
 val data = Seq(
-  ("suszan kapoor", """[{"label":"color","value":"black"}, {"label":"gift","value":"no"}]""")
+  ("suszan kapoor", """[{"color","black"}, {"gift","no"}]""")
 ).toDF("lastname", "demo")
 
-// Define the schema for the JSON data
-val jsonSchema = ArrayType(StructType(Seq(
-  StructField("label", StringType, true),
-  StructField("value", StringType, true)
-)))
+// Define a UDF to parse the string and convert it into a sequence of tuples
+val parseStringToSeq = udf((str: String) => {
+  val regex = "\\{\"(.*?)\",\"(.*?)\"\\}".r
+  regex.findAllIn(str).matchData.map { m =>
+    (m.group(1), m.group(2))
+  }.toSeq
+})
 
-// Parse the JSON string into an array of structs
-val parsedDF = data.withColumn("demo", from_json($"demo", jsonSchema))
-
-// Extract key-value pairs as a sequence of tuples
-val keyValueSeqDF = parsedDF.withColumn("demo", expr("transform(demo, x -> (x.label, x.value))"))
+// Apply the UDF to the DataFrame
+val resultDF = data.withColumn("demo_seq", parseStringToSeq($"demo"))
 
 // Show the resulting DataFrame
-keyValueSeqDF.show(false)
+resultDF.show(false)
 
-// Collect the data as a sequence of tuples
-val result = keyValueSeqDF.select("demo").as[Seq[(String, String)]].collect()
-
-// Print the result
+// Collect and print the result
+val result = resultDF.select("demo_seq").as[Seq[(String, String)]].collect()
 result.foreach(println)
