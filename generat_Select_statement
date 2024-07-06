@@ -1,34 +1,61 @@
-import org.apache.spark.sql.{SparkSession, DataFrame}
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization.write
 
-val spark = SparkSession.builder.appName("example").getOrCreate()
-import spark.implicits._
+// Define a case class to represent the data
+case class Attribute(label: String, value: String)
 
-// Sample data simulating reading from a CSV
-val data = Seq(
-  ("suszan kapoor", """[{"color","black"}, {"gift","no"}]""")
-).toDF("lastname", "demo")
+object ArrayTypeToSeqToJson {
+  def main(args: Array[String]): Unit = {
+    // Initialize SparkSession
+    val spark = SparkSession.builder()
+      .appName("ArrayType to Seq to JSON")
+      .master("local[*]")
+      .getOrCreate()
 
-// Define a UDF to parse the string and convert it into a sequence of tuples
-val parseStringToSeq = udf((str: String) => {
-  // Remove leading and trailing brackets
-  val cleanedStr = str.stripPrefix("[").stripSuffix("]")
-  // Split the string into individual key-value pairs
-  val pairs = cleanedStr.split("\\}, \\{")
-  pairs.map { pair =>
-    // Remove curly braces and split by comma to get key and value
-    val keyValue = pair.replaceAll("[\\{\\}\"]", "").split(",")
-    (keyValue(0).trim, keyValue(1).trim)
-  }.toSeq
-})
+    import spark.implicits._
 
-// Apply the UDF to the DataFrame
-val resultDF = data.withColumn("demo_seq", parseStringToSeq($"demo"))
+    // Define the schema with an ArrayType column
+    val schema = StructType(Seq(
+      StructField("attributes", ArrayType(
+        StructType(Seq(
+          StructField("label", StringType, true),
+          StructField("value", StringType, true)
+        )), true), true)
+    ))
 
-// Show the resulting DataFrame
-resultDF.show(false)
+    // Define the data
+    val data = Seq(
+      Row(Seq(Row("color", "black"))),
+      Row(Seq(Row("xyz", "dfg")))
+    )
 
-// Collect and print the result
-val result = resultDF.select("demo_seq").as[Seq[(String, String)]].collect()
-result.foreach(println)
+    // Create a DataFrame with the defined schema
+    val df = spark.createDataFrame(
+      spark.sparkContext.parallelize(data),
+      schema
+    )
+
+    // Show the DataFrame
+    df.show(false)
+
+    // Extract the array column and convert it to a sequence of case class instances
+    val extractedSeq = df.select($"attributes").as[Seq[Row]].collect().map { rowSeq =>
+      rowSeq.map { row =>
+        Attribute(row.getString(0), row.getString(1))
+      }
+    }
+
+    // Convert the sequence of case class instances to JSON
+    implicit val formats = DefaultFormats
+    val jsonSeq = extractedSeq.map(seq => seq.map(attribute => write(attribute)))
+
+    // Print the JSON array
+    jsonSeq.foreach(seq => seq.foreach(println))
+
+    // Stop SparkSession
+    spark.stop()
+  }
+}
