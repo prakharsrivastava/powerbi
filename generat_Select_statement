@@ -1,9 +1,32 @@
-// Step 2: Define the UDF to add quotes
-def addQuotes(input: String): String = {
-  input.replaceAll("""(\w+)\s*:\s*""", "\"$1\":\"").replaceAll("""\s*,\s*""", "\",\"").replaceAll("""\}\s*,\s*\{""", "\"},{\"").replaceAll("""(\w+)\s*\}""", "$1\"}")
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
+
+// Step 1: Create a Spark session
+val spark = SparkSession.builder
+  .appName("JsonConversion")
+  .getOrCreate()
+
+// Step 2: Sample DataFrame
+val df = Seq(
+  ("[{label:eye Color,value : brown},{label:white Color,value : yes}]"),
+  ("[{label:height,value : 6ft},{label:weight,value : 70kg}]")
+).toDF("jsonString")
+
+// Step 3: Define a function to convert the string to JSON format
+def convertToJson(jsonStr: String): String = {
+  val cleanedStr = jsonStr
+    .replaceAll("\\{\\s*(\\w+)\\s*:", "{\"$1\":")
+    .replaceAll(",\\s*(\\w+)\\s*:", ",\"$1\":")
+    .replaceAll("\\s*}", "}")
+  "[" + cleanedStr + "]"
 }
 
-val addQuotesUDF = udf(addQuotes _)
+// Step 4: Register the UDF
+val convertToJsonUDF = udf(convertToJson _)
 
-// Step 3: Apply the UDF to the DataFrame column
-val resultDF = df.withColumn("jsonWithQuotes", addQuotesUDF(col("jsonString")))
+// Step 5: Apply the UDF to the DataFrame column
+val resultDF = df.withColumn("jsonWithQuotes", convertToJsonUDF($"jsonString"))
+
+// Step 6: Show the result
+resultDF.show(false)
+
