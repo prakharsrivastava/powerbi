@@ -1,1 +1,29 @@
-val resultDF = df.withColumn("jsonWithQuotes", regexp_replace($"jsonString", """\s+(?=(\"[^"]*"\s*[:,\]}]))""", ""))
+import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
+// Initialize Spark Session
+val spark = SparkSession.builder
+  .appName("ConvertToJsonExample")
+  .master("local[*]")
+  .getOrCreate()
+
+// Sample data
+val data = Seq(
+  "{label:sxc,value:dff}"
+).toDF("jsonStr")
+
+// Define schema for parsing the JSON-like string
+val schema = new StructType()
+  .add("label", StringType)
+  .add("value", StringType)
+
+// Convert JSON-like string to valid JSON format
+val convertedDF = data
+  .withColumn("jsonWithQuotes", regexp_replace($"jsonStr", "(\\w+):", "\"$1\":"))
+  .withColumn("jsonWithQuotes", regexp_replace($"jsonWithQuotes", ": (\\w+)", ": \"$1\""))
+  .withColumn("parsed", from_json($"jsonWithQuotes", schema))
+  .select("parsed.*")
+
+// Show the converted DataFrame
+convertedDF.show(false)
