@@ -1,61 +1,21 @@
-import org.apache.spark.sql.{SparkSession, Row}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
-import org.json4s.DefaultFormats
-import org.json4s.jackson.Serialization.write
 
-// Define a case class to represent the data
-case class Attribute(label: String, value: String)
+val spark = SparkSession.builder.appName("JsonConversion").getOrCreate()
 
-object ArrayTypeToSeqToJson {
-  def main(args: Array[String]): Unit = {
-    // Initialize SparkSession
-    val spark = SparkSession.builder()
-      .appName("ArrayType to Seq to JSON")
-      .master("local[*]")
-      .getOrCreate()
+val jsonString = "[{label:eye Color,value : brown},{label:white Color,value : yes}]"
 
-    import spark.implicits._
-
-    // Define the schema with an ArrayType column
-    val schema = StructType(Seq(
-      StructField("attributes", ArrayType(
-        StructType(Seq(
-          StructField("label", StringType, true),
-          StructField("value", StringType, true)
-        )), true), true)
-    ))
-
-    // Define the data
-    val data = Seq(
-      Row(Seq(Row("color", "black"))),
-      Row(Seq(Row("xyz", "dfg")))
-    )
-
-    // Create a DataFrame with the defined schema
-    val df = spark.createDataFrame(
-      spark.sparkContext.parallelize(data),
-      schema
-    )
-
-    // Show the DataFrame
-    df.show(false)
-
-    // Extract the array column and convert it to a sequence of case class instances
-    val extractedSeq = df.select($"attributes").as[Seq[Row]].collect().map { rowSeq =>
-      rowSeq.map { row =>
-        Attribute(row.getString(0), row.getString(1))
-      }
-    }
-
-    // Convert the sequence of case class instances to JSON
-    implicit val formats = DefaultFormats
-    val jsonSeq = extractedSeq.map(seq => seq.map(attribute => write(attribute)))
-
-    // Print the JSON array
-    jsonSeq.foreach(seq => seq.foreach(println))
-
-    // Stop SparkSession
-    spark.stop()
-  }
+// Define a function to add quotes
+def addQuotes(input: String): String = {
+  input.replaceAll("""(\w+)\s*:""", "\"$1\": \"").replaceAll("""\s*:\s*""", ": \"").replaceAll("""(\w+)([,\}])""", "$1\"$2")
 }
+
+// Use the function to add quotes to the jsonString
+val jsonWithQuotes = addQuotes(jsonString)
+
+// Print the result
+println(jsonWithQuotes)
+
+// Optionally, you can convert the string to a DataFrame and process it further using Spark SQL functions
+val df = spark.read.json(Seq(jsonWithQuotes).toDS())
+df.show(false)
