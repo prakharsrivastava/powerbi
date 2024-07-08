@@ -9,17 +9,6 @@ val spark = SparkSession.builder
 
 import spark.implicits._
 
-// Step 2: Sample DataFrameimport org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
-
-// Step 1: Create a Spark session
-val spark = SparkSession.builder
-  .appName("JsonConversion")
-  .master("local[*]")
-  .getOrCreate()
-
-import spark.implicits._
-
 // Step 2: Sample DataFrame
 val df = Seq(
   ("[{label:eye Color,value : brown},{label:white Color}]"),
@@ -33,19 +22,16 @@ def convertToJson(jsonStr: String): String = {
     .replaceAll("""\{(\s*[^,{}:]+)\s*:\s*""", """{"$1":""")
     .replaceAll(""",(\s*[^,{}:]+)\s*:\s*""", """, "$1":""")
     .replaceAll("""\s*:\s*([^,\]}]+)\s*([,\]}])""", """: "$1"$2""")
-    .replaceAll("""(\s*)(\{|\[|:|,)(\s*)""", "$2$3") // Remove extra spaces around structural characters
-    .replaceAll("""\s+([:,])\s+""", "$1") // Remove extra spaces around colons and commas
+    .replaceAll("""(\s*)(\{|\[|:|,|})(\s*)""", "$2$3") // Remove extra spaces around structural characters
+    .replaceAll("""\s+(?=(\"[^"]*"\s*[:,\]}]))""", "") // Remove spaces before commas and closing braces after quoted strings
   cleanedStr
+}
 
-val df = Seq(
-  ("[{label:eye Color,value : brown},{label:white Color}]"),
-  ("[{label:height,value : 6ft},{label:weight,value : 70kg}]")
-).toDF("jsonString")
+// Step 4: Register the UDF
+val convertToJsonUDF = udf(convertToJson _)
 
-// Step 3: Define a function to convert the string to JSON format
-def convertToJson(jsonStr: String): String = {
-  val cleanedStr = jsonStr
-    // Match keys and values, handle both quoted and unquoted values
-    .replaceAll("""\{(\s*[^,{}:]+)\s*:\s*""", """{"$1":""")
-    .replaceAll(""",(\s*[^,{}:]+)\s*:\s*""", """, "$1":""")
-    .replaceAll("""\s*:\s*([^,\]}]+)\s*([,\
+// Step 5: Apply the UDF to the DataFrame column
+val resultDF = df.withColumn("jsonWithQuotes", convertToJsonUDF($"jsonString"))
+
+// Step 6: Show the result
+resultDF.show(false)
