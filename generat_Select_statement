@@ -15,10 +15,11 @@ val df = Seq(
 // Step 3: Define a function to convert the string to JSON format
 def convertToJson(jsonStr: String): String = {
   val cleanedStr = jsonStr
-    // Match keys and values and add quotes
-    .replaceAll("\\{(\\s*)(\\w+)\\s*:", "{$1\"$2\":\"")
-    .replaceAll(",(\\s*)(\\w+)\\s*:", ",$1\"$2\":\"")
-    .replaceAll("\\}", "\"}")
+    // Match keys and add quotes, handle both quoted and unquoted values
+    .replaceAll("\\{(\\s*)(\\w+)\\s*:", "{$1\"$2\":")
+    .replaceAll(",(\\s*)(\\w+)\\s*:", ",$1\"$2\":")
+    .replaceAll(":\\s*(\\w+)([,\\}])", ": \"$1\"$2")
+    .replaceAll("\\s*}", "}")
   "[" + cleanedStr + "]"
 }
 
