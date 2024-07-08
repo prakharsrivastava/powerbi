@@ -12,19 +12,15 @@ val df = Seq(
   ("[{label:height,value : 6ft},{label:weight,value : 70kg}]")
 ).toDF("jsonString")
 
-// Step 3: Define a function to split and convert the string to JSON format
+// Step 3: Define a function to convert the string to JSON format
 def convertToJson(jsonStr: String): String = {
-  val parts = jsonStr.split("\\},\\{") // Split by },{ to separate individual JSON objects
-  val cleanedStr = parts.map { part =>
+  val cleanedStr = jsonStr
     // Match keys and add quotes, handle both quoted and unquoted values
-    part
-      .replaceAll("\\{\\s*(\\w+)\\s*:", "{\"$1\":")
-      .replaceAll(",\\s*(\\w+)\\s*:", ",\"$1\":")
-      .replaceAll(":\\s*(\\w+)([,\\}])", ": \"$1\"$2")
-      .replaceAll("\\s*}", "}")
-  }.mkString("[", ",", "]") // Join parts back together with []
-
-  cleanedStr
+    .replaceAll("\\{(\\s*)(\\w+)\\s*:", "{\"$2\":\"")
+    .replaceAll(",(\\s*)(\\w+)\\s*:", ",\"$2\":\"")
+    .replaceAll(":\\s*(\\w+)([,\\}])", "\":\"$1\"$2")
+    .replaceAll("\\s*}", "\"}")
+  "[" + cleanedStr + "]"
 }
 
 // Step 4: Register the UDF
