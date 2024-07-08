@@ -4,6 +4,7 @@ import org.apache.spark.sql.functions._
 // Step 1: Create a Spark session
 val spark = SparkSession.builder
   .appName("JsonConversion")
+  .master("local[*]")
   .getOrCreate()
 
 import spark.implicits._
@@ -18,10 +19,10 @@ val df = Seq(
 def convertToJson(jsonStr: String): String = {
   val cleanedStr = jsonStr
     // Match keys and values, handle both quoted and unquoted values
-    .replaceAll("""\{(\s*\w+\s*):""", """{"$1":""")
-    .replaceAll(""",(\s*\w+\s*):""", """, "$1":""")
-    .replaceAll("""(?<=[{,])(\s*\w+\s*):""", """"$1":""")
-    .replaceAll("""(?<=:)\s*(\w+)(?=[,}])""", """"$1"""")
+    .replaceAll("""\{(\s*[^,{}:]+)\s*:\s*""", """{"$1":""")
+    .replaceAll(""",(\s*[^,{}:]+)\s*:\s*""", """, "$1":""")
+    .replaceAll("""\s*:\s*([^,\]}]+)\s*([,\]}])""", """: "$1"$2""")
+    .replaceAll("""(\s*)(\{|\[|:|,)(\s*)""", "$2$3") // Remove extra spaces around structural characters
   cleanedStr
 }
 
@@ -29,7 +30,4 @@ def convertToJson(jsonStr: String): String = {
 val convertToJsonUDF = udf(convertToJson _)
 
 // Step 5: Apply the UDF to the DataFrame column
-val resultDF = df.withColumn("jsonWithQuotes", convertToJsonUDF($"jsonString"))
-
-// Step 6: Show the result
-resultDF.show(false)
+val resultDF = df.withColumn("jsonWithQuotes", convertToJson
