@@ -1,21 +1,9 @@
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
-
-val spark = SparkSession.builder.appName("JsonConversion").getOrCreate()
-
-val jsonString = "[{label:eye Color,value : brown},{label:white Color,value : yes}]"
-
-// Define a function to add quotes
+// Step 2: Define the UDF to add quotes
 def addQuotes(input: String): String = {
-  input.replaceAll("""(\w+)\s*:""", "\"$1\": \"").replaceAll("""\s*:\s*""", ": \"").replaceAll("""(\w+)([,\}])""", "$1\"$2")
+  input.replaceAll("""(\w+)\s*:\s*""", "\"$1\":\"").replaceAll("""\s*,\s*""", "\",\"").replaceAll("""\}\s*,\s*\{""", "\"},{\"").replaceAll("""(\w+)\s*\}""", "$1\"}")
 }
 
-// Use the function to add quotes to the jsonString
-val jsonWithQuotes = addQuotes(jsonString)
+val addQuotesUDF = udf(addQuotes _)
 
-// Print the result
-println(jsonWithQuotes)
-
-// Optionally, you can convert the string to a DataFrame and process it further using Spark SQL functions
-val df = spark.read.json(Seq(jsonWithQuotes).toDS())
-df.show(false)
+// Step 3: Apply the UDF to the DataFrame column
+val resultDF = df.withColumn("jsonWithQuotes", addQuotesUDF(col("jsonString")))
