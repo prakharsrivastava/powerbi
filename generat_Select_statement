@@ -18,10 +18,12 @@ val schema = new StructType()
   .add("label", StringType)
   .add("value", StringType)
 
+// Define UDF to wrap strings with double quotes
+val wrapWithQuotes = udf((str: String) => "\"" + str + "\"")
+
 // Convert JSON-like string to valid JSON format
 val convertedDF = data
-  .withColumn("jsonWithQuotes", regexp_replace($"jsonStr", "(\\w+):", "\"$1\":"))
-  .withColumn("jsonWithQuotes", regexp_replace($"jsonWithQuotes", ": (\\w+)", ": \"$1\""))
+  .withColumn("jsonWithQuotes", regexp_replace($"jsonStr", "(label|value):([^,\\}]+)", "$1:" + wrapWithQuotes($"2")))
   .withColumn("parsed", from_json($"jsonWithQuotes", schema))
   .select("parsed.*")
 
