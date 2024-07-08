@@ -19,6 +19,7 @@ def convertToJson(jsonStr: String): String = {
     .replaceAll("\\{(\\s*)(\\w+)\\s*:", "{$1\"$2\":")
     .replaceAll(",(\\s*)(\\w+)\\s*:", ",$1\"$2\":")
     .replaceAll(":\\s*(\\w+)([,\\}])", ": \"$1\"$2")
+    .replaceAll(":\\s*(\\w+),", ": \"$1\",") // handle unquoted values without trailing comma
     .replaceAll("\\s*}", "}")
   "[" + cleanedStr + "]"
 }
