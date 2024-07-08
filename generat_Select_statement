@@ -8,16 +8,17 @@ val spark = SparkSession.builder
 
 // Step 2: Sample DataFrame
 val df = Seq(
-  ("[{label:eye Color,value : brown},{label:white Color,value : yes}]"),
+  ("[{label:eye Color,value : brown},{label:white Color}]"),
   ("[{label:height,value : 6ft},{label:weight,value : 70kg}]")
 ).toDF("jsonString")
 
 // Step 3: Define a function to convert the string to JSON format
 def convertToJson(jsonStr: String): String = {
   val cleanedStr = jsonStr
-    .replaceAll("\\{\\s*(\\w+)\\s*:", "{\"$1\":")
-    .replaceAll(",\\s*(\\w+)\\s*:", ",\"$1\":")
-    .replaceAll("\\s*}", "}")
+    // Match keys and values and add quotes
+    .replaceAll("\\{(\\s*)(\\w+)\\s*:", "{$1\"$2\":\"")
+    .replaceAll(",(\\s*)(\\w+)\\s*:", ",$1\"$2\":\"")
+    .replaceAll("\\}", "\"}")
   "[" + cleanedStr + "]"
 }
 
@@ -29,4 +30,3 @@ val resultDF = df.withColumn("jsonWithQuotes", convertToJsonUDF($"jsonString"))
 
 // Step 6: Show the result
 resultDF.show(false)
-
