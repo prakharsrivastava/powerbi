@@ -6,6 +6,8 @@ val spark = SparkSession.builder
   .appName("JsonConversion")
   .getOrCreate()
 
+import spark.implicits._
+
 // Step 2: Sample DataFrame
 val df = Seq(
   ("[{label:eye Color,value : brown},{label:white Color}]"),
@@ -14,16 +16,12 @@ val df = Seq(
 
 // Step 3: Define a function to convert the string to JSON format
 def convertToJson(jsonStr: String): String = {
-  val parts = jsonStr.split("\\},\\{") // Split by },{ to separate individual JSON objects
-  val cleanedStr = parts.map { part =>
-    // Match keys and add quotes, handle both quoted and unquoted values
-    part
-      .replaceAll("\\{\\s*([^:,]+)\\s*:", "{$1\":\"")
-      .replaceAll(",\\s*([^:,]+)\\s*:", ",\"$1\":\"")
-      .replaceAll(":\\s*([^,\\}]+)([,\\}])", "\":\"$1\"$2")
-      .replaceAll("\\s*}", "\"}")
-  }.mkString("[", ",", "]") // Join parts back together with []
-
+  val cleanedStr = jsonStr
+    // Match keys and values, handle both quoted and unquoted values
+    .replaceAll("""\{(\s*\w+\s*):""", """{"$1":""")
+    .replaceAll(""",(\s*\w+\s*):""", """, "$1":""")
+    .replaceAll("""(?<=[{,])(\s*\w+\s*):""", """"$1":""")
+    .replaceAll("""(?<=:)\s*(\w+)(?=[,}])""", """"$1"""")
   cleanedStr
 }
 
