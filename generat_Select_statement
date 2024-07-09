@@ -1,31 +1,43 @@
 import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
 
-// Initialize Spark Session
+// Initialize Spark session
 val spark = SparkSession.builder
-  .appName("ConvertToJsonExample")
+  .appName("Pivot Explode Example")
   .master("local[*]")
   .getOrCreate()
 
-// Sample data
+import spark.implicits._
+
+// Sample DataFrame
 val data = Seq(
-  "{label:sxc,value:dff}"
-).toDF("jsonStr")
+  ("A", "X", 1),
+  ("A", "Y", 2),
+  ("A", "Z", 3)
+).toDF("Category", "Type", "Value")
 
-// Define schema for parsing the JSON-like string
-val schema = new StructType()
-  .add("label", StringType)
-  .add("value", StringType)
+// Show the original DataFrame
+println("Original DataFrame:")
+data.show()
 
-// Define UDF to wrap strings with double quotes
-val wrapWithQuotes = udf((str: String) => "\"" + str + "\"")
+// Pivot the DataFrame
+val pivotDF = data
+  .groupBy("Category")
+  .pivot("Type")
+  .agg(first("Value"))
 
-// Convert JSON-like string to valid JSON format
-val convertedDF = data
-  .withColumn("jsonWithQuotes", regexp_replace($"jsonStr", "(label|value):([^,\\}]+)", "$1:" + wrapWithQuotes($"2")))
-  .withColumn("parsed", from_json($"jsonWithQuotes", schema))
-  .select("parsed.*")
+// Show the pivoted DataFrame
+println("Pivoted DataFrame:")
+pivotDF.show()
 
-// Show the converted DataFrame
-convertedDF.show(false)
+// Explode the pivoted DataFrame (assuming we have a column with arrays)
+val explodedDF = pivotDF.select($"Category", array($"X", $"Y", $"Z").as("Values"))
+  .withColumn("ExplodedValue", explode($"Values"))
+
+// Show the exploded DataFrame
+println("Exploded DataFrame:")
+explodedDF.show()
+
+// Show all columns in the final DataFrame
+println("Final DataFrame with all columns:")
+explodedDF.select($"Category", $"ExplodedValue").show()
