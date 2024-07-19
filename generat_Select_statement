@@ -1,43 +1,28 @@
-import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
-// Initialize Spark session
-val spark = SparkSession.builder
-  .appName("Pivot Explode Example")
-  .master("local[*]")
-  .getOrCreate()
+case class Param(attribute: String, value: Seq[String])
 
-import spark.implicits._
+def filter(dataframe: DataFrame, param: Option[Seq[Param]]): DataFrame = {
+  param match {
+    case Some(params) =>
+      val filteredDf = params.foldLeft(dataframe) { (df, p) =>
+        val attribute = p.attribute
+        val values = p.value
+        val tempColumn = s"${attribute}_temp"
+        if (df.columns.contains(tempColumn)) {
+          df.filter(col(tempColumn).isin(values: _*))
+        } else {
+          df
+        }
+      }
 
-// Sample DataFrame
-val data = Seq(
-  ("A", "X", 1),
-  ("A", "Y", 2),
-  ("A", "Z", 3)
-).toDF("Category", "Type", "Value")
+      val columnsToDrop = filteredDf.columns.filter(_.endsWith("_temp"))
+      if (columnsToDrop.nonEmpty) {
+        filteredDf.drop(columnsToDrop: _*)
+      } else {
+        filteredDf
+      }
 
-// Show the original DataFrame
-println("Original DataFrame:")
-data.show()
-
-// Pivot the DataFrame
-val pivotDF = data
-  .groupBy("Category")
-  .pivot("Type")
-  .agg(first("Value"))
-
-// Show the pivoted DataFrame
-println("Pivoted DataFrame:")
-pivotDF.show()
-
-// Explode the pivoted DataFrame (assuming we have a column with arrays)
-val explodedDF = pivotDF.select($"Category", array($"X", $"Y", $"Z").as("Values"))
-  .withColumn("ExplodedValue", explode($"Values"))
-
-// Show the exploded DataFrame
-println("Exploded DataFrame:")
-explodedDF.show()
-
-// Show all columns in the final DataFrame
-println("Final DataFrame with all columns:")
-explodedDF.select($"Category", $"ExplodedValue").show()
+    case None => dataframe
+  }
