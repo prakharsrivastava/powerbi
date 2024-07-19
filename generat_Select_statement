@@ -1,28 +1,61 @@
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
-case class Param(attribute: String, value: Seq[String])
+case class RequestParam(reportParam: ReportParam)
+case class ReportParam(stateDemographics: Option[Seq[StateDemographicsParam]])
+case class StateDemographicsParam(attribute: String, values: Option[Seq[String]])
 
-def filter(dataframe: DataFrame, param: Option[Seq[Param]]): DataFrame = {
-  param match {
-    case Some(params) =>
-      val filteredDf = params.foldLeft(dataframe) { (df, p) =>
-        val attribute = p.attribute
-        val values = p.value
-        val tempColumn = s"${attribute}_temp"
-        if (df.columns.contains(tempColumn)) {
-          df.filter(col(tempColumn).isin(values: _*))
+def filter(inputDf: DataFrame, request: RequestParam): DataFrame = {
+  // Extract the stateDemographics parameter from the request
+  val stateDemographics = request.reportParam.stateDemographics
+
+  // Apply the filters iteratively using foldLeft
+  val filteredDf = stateDemographics match {
+    case Some(demographics) => 
+      demographics.foldLeft(inputDf) { (df, param) =>
+        val attribute = param.attribute
+        val values = param.values.getOrElse(Seq.empty[String])
+        val tempAttribute = attribute + "_temp"
+
+        // Apply filter if column exists
+        val dfFiltered = if (df.columns.contains(tempAttribute)) {
+          df.filter(col(tempAttribute).isin(values: _*))
         } else {
           df
         }
-      }
 
-      val columnsToDrop = filteredDf.columns.filter(_.endsWith("_temp"))
-      if (columnsToDrop.nonEmpty) {
-        filteredDf.drop(columnsToDrop: _*)
-      } else {
-        filteredDf
+        // Drop temporary columns if necessary
+        val colMap = dfFiltered.columns.filter(_.endsWith("_temp"))
+        if (colMap.nonEmpty) {
+          dfFiltered.drop(colMap: _*)
+        } else {
+          dfFiltered
+        }
       }
-
-    case None => dataframe
+    case None => inputDf
   }
+
+  filteredDf
+}
+
+// Sample usage
+val spark = SparkSession.builder()
+  .appName("Filter DataFrame Example")
+  .master("local[*]")
+  .getOrCreate()
+
+import spark.implicits._
+
+// Example input DataFrame
+val inputDf = Seq(
+  ("John", "NY_temp", 85),
+  ("Jane", "CA_temp", 88)
+).toDF("name", "state_temp", "score")
+
+// Example request
+val request = RequestParam(ReportParam(Some(Seq(
+  StateDemographicsParam("state", Some(Seq("NY")))
+))))
+
+val resultDf = filter(inputDf, request)
+resultDf.show(false)
