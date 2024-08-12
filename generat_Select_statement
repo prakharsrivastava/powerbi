@@ -1,61 +1,25 @@
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions._
+pip install boto3
+import boto3
 
-case class RequestParam(reportParam: ReportParam)
-case class ReportParam(stateDemographics: Option[Seq[StateDemographicsParam]])
-case class StateDemographicsParam(attribute: String, values: Option[Seq[String]])
+def extract_text_from_image(image_path):
+    # Initialize a session using Amazon Textract
+    client = boto3.client('textract', region_name='us-west-2')  # Specify your AWS region
 
-def filter(inputDf: DataFrame, request: RequestParam): DataFrame = {
-  // Extract the stateDemographics parameter from the request
-  val stateDemographics = request.reportParam.stateDemographics
+    # Read the image file
+    with open(image_path, 'rb') as document:
+        image_bytes = bytearray(document.read())
 
-  // Apply the filters iteratively using foldLeft
-  val filteredDf = stateDemographics match {
-    case Some(demographics) => 
-      demographics.foldLeft(inputDf) { (df, param) =>
-        val attribute = param.attribute
-        val values = param.values.getOrElse(Seq.empty[String])
-        val tempAttribute = attribute + "_temp"
+    # Call Amazon Textract
+    response = client.detect_document_text(Document={'Bytes': image_bytes})
 
-        // Apply filter if column exists
-        val dfFiltered = if (df.columns.contains(tempAttribute)) {
-          df.filter(col(tempAttribute).isin(values: _*))
-        } else {
-          df
-        }
+    # Print detected text
+    print("Detected text in the image:")
+    for item in response['Blocks']:
+        if item['BlockType'] == 'LINE':
+            print(item['Text'])
 
-        // Drop temporary columns if necessary
-        val colMap = dfFiltered.columns.filter(_.endsWith("_temp"))
-        if (colMap.nonEmpty) {
-          dfFiltered.drop(colMap: _*)
-        } else {
-          dfFiltered
-        }
-      }
-    case None => inputDf
-  }
+# Specify the path to your image file
+image_path = 'sample_image.jpg'
 
-  filteredDf
-}
-
-// Sample usage
-val spark = SparkSession.builder()
-  .appName("Filter DataFrame Example")
-  .master("local[*]")
-  .getOrCreate()
-
-import spark.implicits._
-
-// Example input DataFrame
-val inputDf = Seq(
-  ("John", "NY_temp", 85),
-  ("Jane", "CA_temp", 88)
-).toDF("name", "state_temp", "score")
-
-// Example request
-val request = RequestParam(ReportParam(Some(Seq(
-  StateDemographicsParam("state", Some(Seq("NY")))
-))))
-
-val resultDf = filter(inputDf, request)
-resultDf.show(false)
+# Extract and display text
+extract_text_from_image(image_path)
