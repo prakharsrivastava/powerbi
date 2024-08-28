@@ -2,10 +2,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.Assertions; // JUnit 5 assertions
 
 public class Main {
@@ -18,33 +14,25 @@ public class Main {
     }
 
     public void method1() {
-        // Call the web client and wait for the response with a timeout
-        Pair<HttpStatus, Optional<String>> response = callWebClient(() -> client.method1().block());
+        // Call the web client and block until the response is received
+        CompletableFuture<Pair<HttpStatus, Optional<String>>> futureResponse = CompletableFuture.supplyAsync(() -> 
+            callWebClient(() -> client.method1().block())
+        );
 
-        // Assert that the response status is OK, but only after client.method1() completes
+        // Wait for the response and then assert that the response status is OK
+        Pair<HttpStatus, Optional<String>> response = futureResponse.join();  // This blocks until the CompletableFuture completes
+
+        // Assert that the response status is OK
         Assertions.assertEquals(HttpStatus.OK, response.getKey(), "Expected HTTP status OK, but got: " + response.getKey());
     }
 
     public Pair<HttpStatus, Optional<String>> callWebClient(Supplier<String> supplier) {
-        CompletableFuture<Pair<HttpStatus, Optional<String>>> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                // Call the supplier method (blocking WebClient call)
-                String responseBody = supplier.get();
-                HttpStatus status = HttpStatus.OK; // Set the status based on your logic
-                return new Pair<>(status, Optional.ofNullable(responseBody));
-            } catch (Exception e) {
-                e.printStackTrace();
-                return new Pair<>(HttpStatus.INTERNAL_SERVER_ERROR, Optional.empty());
-            }
-        });
-
         try {
-            // Wait for the future to complete within the specified timeout
-            return future.get(5, TimeUnit.SECONDS);  // Timeout after 5 seconds
-        } catch (TimeoutException e) {
-            System.err.println("Timeout occurred while waiting for the response");
-            return new Pair<>(HttpStatus.REQUEST_TIMEOUT, Optional.empty());
-        } catch (InterruptedException | ExecutionException e) {
+            // Call the supplier method (blocking WebClient call)
+            String responseBody = supplier.get();
+            HttpStatus status = HttpStatus.OK; // Set the status based on your logic
+            return new Pair<>(status, Optional.ofNullable(responseBody));
+        } catch (Exception e) {
             e.printStackTrace();
             return new Pair<>(HttpStatus.INTERNAL_SERVER_ERROR, Optional.empty());
         }
@@ -56,21 +44,4 @@ public class Main {
     }
 }
 
-// A simple Pair class if not using JavaFX or other libraries that provide it
-class Pair<K, V> {
-    private final K key;
-    private final V value;
-
-    public Pair(K key, V value) {
-        this.key = key;
-        this.value = value;
-    }
-
-    public K getKey() {
-        return key;
-    }
-
-    public V getValue() {
-        return value;
-    }
-}
+// A simple Pair class if not using Java
