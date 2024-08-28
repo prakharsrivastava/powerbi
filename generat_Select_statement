@@ -1,25 +1,76 @@
-pip install boto3
-import boto3
+import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.client.WebClient;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.Assertions; // JUnit 5 assertions
 
-def extract_text_from_image(image_path):
-    # Initialize a session using Amazon Textract
-    client = boto3.client('textract', region_name='us-west-2')  # Specify your AWS region
+public class Main {
 
-    # Read the image file
-    with open(image_path, 'rb') as document:
-        image_bytes = bytearray(document.read())
+    private WebClient client;
 
-    # Call Amazon Textract
-    response = client.detect_document_text(Document={'Bytes': image_bytes})
+    public Main() {
+        // Initialize WebClient
+        client = WebClient.create("http://example.com");
+    }
 
-    # Print detected text
-    print("Detected text in the image:")
-    for item in response['Blocks']:
-        if item['BlockType'] == 'LINE':
-            print(item['Text'])
+    public void method1() {
+        // Call the web client and wait for the response with a timeout
+        Pair<HttpStatus, Optional<String>> response = callWebClient(() -> client.method1().block());
 
-# Specify the path to your image file
-image_path = 'sample_image.jpg'
+        // Assert that the response status is OK, but only after client.method1() completes
+        Assertions.assertEquals(HttpStatus.OK, response.getKey(), "Expected HTTP status OK, but got: " + response.getKey());
+    }
 
-# Extract and display text
-extract_text_from_image(image_path)
+    public Pair<HttpStatus, Optional<String>> callWebClient(Supplier<String> supplier) {
+        CompletableFuture<Pair<HttpStatus, Optional<String>>> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                // Call the supplier method (blocking WebClient call)
+                String responseBody = supplier.get();
+                HttpStatus status = HttpStatus.OK; // Set the status based on your logic
+                return new Pair<>(status, Optional.ofNullable(responseBody));
+            } catch (Exception e) {
+                e.printStackTrace();
+                return new Pair<>(HttpStatus.INTERNAL_SERVER_ERROR, Optional.empty());
+            }
+        });
+
+        try {
+            // Wait for the future to complete within the specified timeout
+            return future.get(5, TimeUnit.SECONDS);  // Timeout after 5 seconds
+        } catch (TimeoutException e) {
+            System.err.println("Timeout occurred while waiting for the response");
+            return new Pair<>(HttpStatus.REQUEST_TIMEOUT, Optional.empty());
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return new Pair<>(HttpStatus.INTERNAL_SERVER_ERROR, Optional.empty());
+        }
+    }
+
+    public static void main(String[] args) {
+        Main main = new Main();
+        main.method1();
+    }
+}
+
+// A simple Pair class if not using JavaFX or other libraries that provide it
+class Pair<K, V> {
+    private final K key;
+    private final V value;
+
+    public Pair(K key, V value) {
+        this.key = key;
+        this.value = value;
+    }
+
+    public K getKey() {
+        return key;
+    }
+
+    public V getValue() {
+        return value;
+    }
+}
