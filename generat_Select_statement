@@ -1,7 +1,8 @@
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Assertions; // JUnit 5 assertions
 
 public class Main {
@@ -13,35 +14,63 @@ public class Main {
         client = WebClient.create("http://example.com");
     }
 
-    public void method1() {
-        // Call the web client and block until the response is received
-        CompletableFuture<Pair<HttpStatus, Optional<String>>> futureResponse = CompletableFuture.supplyAsync(() -> 
-            callWebClient(() -> client.method1().block())
-        );
+    public void method1() throws InterruptedException {
+        // Use a CountDownLatch to wait for the asynchronous operation to complete
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Pair<HttpStatus, Optional<String>>> responseRef = new AtomicReference<>();
 
-        // Wait for the response and then assert that the response status is OK
-        Pair<HttpStatus, Optional<String>> response = futureResponse.join();  // This blocks until the CompletableFuture completes
+        // Asynchronously call the web client and set the response
+        callWebClient(() -> {
+            client.method1().subscribe(responseBody -> {
+                responseRef.set(new Pair<>(HttpStatus.OK, Optional.ofNullable(responseBody)));
+                latch.countDown();  // Decrement the latch to indicate completion
+            }, error -> {
+                responseRef.set(new Pair<>(HttpStatus.INTERNAL_SERVER_ERROR, Optional.empty()));
+                latch.countDown();  // Decrement the latch in case of an error
+            });
+            return null;
+        });
 
-        // Assert that the response status is OK
+        // Wait for the WebClient call to complete
+        latch.await();
+
+        // Get the response and assert that the status is OK
+        Pair<HttpStatus, Optional<String>> response = responseRef.get();
         Assertions.assertEquals(HttpStatus.OK, response.getKey(), "Expected HTTP status OK, but got: " + response.getKey());
     }
 
-    public Pair<HttpStatus, Optional<String>> callWebClient(Supplier<String> supplier) {
+    public Pair<HttpStatus, Optional<String>> callWebClient(Supplier<Void> supplier) {
         try {
-            // Call the supplier method (blocking WebClient call)
-            String responseBody = supplier.get();
-            HttpStatus status = HttpStatus.OK; // Set the status based on your logic
-            return new Pair<>(status, Optional.ofNullable(responseBody));
+            supplier.get();
+            // The return value is set asynchronously, so just return a placeholder here
+            return null;
         } catch (Exception e) {
             e.printStackTrace();
             return new Pair<>(HttpStatus.INTERNAL_SERVER_ERROR, Optional.empty());
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         Main main = new Main();
         main.method1();
     }
 }
 
-// A simple Pair class if not using Java
+// A simple Pair class if not using JavaFX or other libraries that provide it
+class Pair<K, V> {
+    private final K key;
+    private final V value;
+
+    public Pair(K key, V value) {
+        this.key = key;
+        this.value = value;
+    }
+
+    public K getKey() {
+        return key;
+    }
+
+    public V getValue() {
+        return value;
+    }
+}
